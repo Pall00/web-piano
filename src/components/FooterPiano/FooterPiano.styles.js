@@ -1,4 +1,5 @@
 // src/components/FooterPiano/FooterPiano.styles.js
+// Add these new styled components
 import styled, { keyframes } from 'styled-components'
 
 export const PianoContainer = styled.div`
@@ -6,7 +7,7 @@ export const PianoContainer = styled.div`
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 120px;
+  height: 160px;
   background-color: #222;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -30,9 +31,37 @@ export const PianoContainer = styled.div`
   }
 `
 
+export const PianoUpperHousing = styled.div`
+  height: 20%;
+  width: 100%;
+  background-color: #111;
+  background-image: linear-gradient(to bottom, #0a0a0a, #222);
+  box-shadow: inset 0 5px 10px rgba(0, 0, 0, 0.5);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px;
+`
+
+export const PianoFeltStrip = styled.div`
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  background-color: #8b0000;
+  background-image: linear-gradient(to right, #8b0000, #a52a2a, #8b0000);
+`
+
+export const ControlsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`
+
 export const WhiteKeysContainer = styled.div`
   display: flex;
-  height: 100%;
+  height: 80%; /* Changed from 100% to account for the upper housing */
   position: relative;
   min-width: max-content;
 `
@@ -136,16 +165,13 @@ export const LoadingIndicator = styled.div`
     animation: ${spin} 1s ease-in-out infinite;
   }
 `
+
 export const MidiIndicator = styled.div`
-  position: absolute;
-  top: 5px;
-  right: 10px;
   padding: 4px 8px;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.5);
   color: ${props => (props.$isPort1 ? '#4CAF50' : '#FFC107')};
   font-size: 12px;
   border-radius: 4px;
-  z-index: 10;
 
   &::before {
     content: '🎹';

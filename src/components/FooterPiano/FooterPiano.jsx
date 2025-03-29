@@ -3,17 +3,20 @@
 import { useRef, useState, useEffect } from 'react'
 import {
   PianoContainer,
+  PianoUpperHousing,
+  PianoFeltStrip,
+  ControlsContainer,
   WhiteKeysContainer,
   WhiteKey,
   BlackKey,
   KeyLabel,
   StartAudioButton,
   LoadingIndicator,
-  MidiIndicator, // New import for MIDI status
+  MidiIndicator,
 } from './FooterPiano.styles'
 import { generatePianoKeys, calculateBlackKeyPosition } from './utils/pianoUtils'
 import usePianoAudio from './hooks/usePianoAudio'
-import useMidiKeyboard from './hooks/useMidiKeyboard' // Import the new hook
+import useMidiKeyboard from './hooks/useMidiKeyboard'
 
 const FooterPiano = ({ showLabels = false }) => {
   // Piano keys data
@@ -118,9 +121,16 @@ const FooterPiano = ({ showLabels = false }) => {
 
   return (
     <PianoContainer ref={containerRef}>
-      {isMidiConnected && (
-        <MidiIndicator $isPort1={isPort1Device}>MIDI: {midiDeviceName}</MidiIndicator>
-      )}
+      <PianoUpperHousing>
+        <PianoFeltStrip />
+        <ControlsContainer>
+          {isMidiConnected && (
+            <MidiIndicator $isPort1={isPort1Device}>MIDI: {midiDeviceName}</MidiIndicator>
+          )}
+          {/* Future controls would go here */}
+        </ControlsContainer>
+      </PianoUpperHousing>
+
       <WhiteKeysContainer>
         {/* White keys */}
         {whiteKeys.map(key => (
