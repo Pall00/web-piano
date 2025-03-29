@@ -1,13 +1,21 @@
 // src/components/FooterPiano/hooks/useMidiKeyboard.js
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
 /**
  * A simplified hook for connecting to MIDI keyboards
  * Automatically connects to the first available MIDI device
  */
-const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
+const useMidiKeyboard = ({ onNoteOn, onNoteOff, isAudioReady = false }) => {
   const [isMidiConnected, setIsMidiConnected] = useState(false)
   const [midiDeviceName, setMidiDeviceName] = useState('')
+
+  // Use refs to prevent duplicate connections and messages
+  const midiAccessRef = useRef(null)
+  const currentDeviceRef = useRef(null)
+  const isInitializedRef = useRef(false)
+
+  // Track active notes to prevent duplicates
+  const activeNotesRef = useRef(new Set())
 
   // Minimal MIDI note number to note name mapping
   const midiNoteToNoteName = useCallback(midiNote => {
@@ -36,14 +44,24 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
    */
   const handleMidiMessage = useCallback(
     event => {
+      // Skip processing if audio isn't ready
+      if (!isAudioReady) {
+        return
+      }
+
       // Extract MIDI data: [command, note, velocity]
       const [command, note, velocity] = event.data
+      const noteName = midiNoteToNoteName(note)
 
-      // Note on event (command: 144-159)
+      if (!noteName) return // Invalid note
+
+      // Note on event (command: 144-159 with velocity > 0)
       if (command >= 144 && command <= 159 && velocity > 0) {
-        const noteName = midiNoteToNoteName(note)
-        if (noteName && onNoteOn) {
-          onNoteOn(noteName)
+        // Check if we've already processed this note
+        if (!activeNotesRef.current.has(note)) {
+          activeNotesRef.current.add(note)
+          console.warn(`MIDI Note On: ${noteName} (velocity: ${velocity})`)
+          if (onNoteOn) onNoteOn(noteName)
         }
       }
       // Note off event (command: 128-143 or note-on with velocity 0)
@@ -51,13 +69,14 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
         (command >= 128 && command <= 143) ||
         (command >= 144 && command <= 159 && velocity === 0)
       ) {
-        const noteName = midiNoteToNoteName(note)
-        if (noteName && onNoteOff) {
-          onNoteOff(noteName)
+        if (activeNotesRef.current.has(note)) {
+          activeNotesRef.current.delete(note)
+          console.warn(`MIDI Note Off: ${noteName}`)
+          if (onNoteOff) onNoteOff(noteName)
         }
       }
     },
-    [onNoteOn, onNoteOff, midiNoteToNoteName],
+    [onNoteOn, onNoteOff, midiNoteToNoteName, isAudioReady],
   )
 
   /**
@@ -82,6 +101,12 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
    * Initialize WebMIDI and connect to Port-1 first, then other devices
    */
   const initializeMidi = useCallback(async () => {
+    // Prevent multiple initializations
+    if (isInitializedRef.current) {
+      console.warn('MIDI already initialized, skipping')
+      return true
+    }
+
     // Check if Web MIDI API is supported
     if (!navigator.requestMIDIAccess) {
       console.warn('Web MIDI API is not supported in this browser')
@@ -91,9 +116,15 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
     try {
       // Request MIDI access
       const midiAccess = await navigator.requestMIDIAccess()
+      midiAccessRef.current = midiAccess
 
       // Function to connect to a preferred device
       const connectToDevice = () => {
+        // Skip if we already have a connection
+        if (currentDeviceRef.current) {
+          return true
+        }
+
         const inputs = Array.from(midiAccess.inputs.values())
         if (inputs.length === 0) {
           console.warn('No MIDI devices found')
@@ -108,9 +139,19 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
         // Connect to Port-1 if found, otherwise use the first available device
         const device = port1Device || inputs[0]
 
+        // Store the device
+        currentDeviceRef.current = device
+
+        // Clear active notes on device change
+        activeNotesRef.current.clear()
+
+        // Set up the message handler
         device.onmidimessage = handleMidiMessage
+
+        // Update state
         setMidiDeviceName(device.name || 'MIDI Keyboard')
         setIsMidiConnected(true)
+
         console.warn(`Connected to MIDI device: ${device.name}${port1Device ? ' (Port-1)' : ''}`)
         return true
       }
@@ -118,27 +159,46 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
       // Try to connect to preferred device
       connectToDevice()
 
+      // Clean up any previous state change handlers
+      if (midiAccess.onstatechange) {
+        midiAccess.onstatechange = null
+      }
+
       // Set up connection/disconnection event handlers
       midiAccess.onstatechange = event => {
         if (event.port.type === 'input') {
           if (event.port.state === 'connected') {
             console.warn(`MIDI device connected: ${event.port.name}`)
 
-            // If the newly connected device is Port-1, prioritize connecting to it
-            if (isPort1Device(event.port.name)) {
-              console.warn('Port-1 device detected, prioritizing connection')
-              // Small timeout to ensure the device is ready
-              setTimeout(() => connectToDevice(), 100)
-            } else if (!isMidiConnected) {
-              // Only connect to non-Port-1 device if we're not connected to anything
-              connectToDevice()
+            // Only attempt reconnection if we're not already connected
+            if (!currentDeviceRef.current) {
+              // If the newly connected device is Port-1, connect to it
+              if (isPort1Device(event.port.name)) {
+                console.warn('Port-1 device detected, connecting...')
+                connectToDevice()
+              } else if (!isMidiConnected) {
+                // Connect to non-Port-1 device if not connected to anything
+                connectToDevice()
+              }
             }
           } else if (event.port.state === 'disconnected') {
             console.warn(`MIDI device disconnected: ${event.port.name}`)
-            // If our current device was disconnected
-            if (midiDeviceName === event.port.name) {
+
+            // Only handle disconnection if it's our current device
+            if (currentDeviceRef.current && currentDeviceRef.current.name === event.port.name) {
+              // Clear active notes when device disconnects
+              if (onNoteOff) {
+                activeNotesRef.current.forEach(note => {
+                  const noteName = midiNoteToNoteName(note)
+                  if (noteName) onNoteOff(noteName)
+                })
+              }
+              activeNotesRef.current.clear()
+
               setIsMidiConnected(false)
               setMidiDeviceName('')
+              currentDeviceRef.current = null
+
               // Try to connect to another device if available
               connectToDevice()
             }
@@ -146,17 +206,32 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
         }
       }
 
+      isInitializedRef.current = true
       return true
     } catch (error) {
       console.error('Failed to initialize MIDI:', error)
       return false
     }
-  }, [handleMidiMessage, midiDeviceName, isMidiConnected])
+  }, [handleMidiMessage, isMidiConnected, midiNoteToNoteName, onNoteOff])
+
+  /**
+   * Force release all held notes
+   */
+  const releaseAllNotes = useCallback(() => {
+    if (onNoteOff) {
+      activeNotesRef.current.forEach(note => {
+        const noteName = midiNoteToNoteName(note)
+        if (noteName) onNoteOff(noteName)
+      })
+    }
+    activeNotesRef.current.clear()
+  }, [midiNoteToNoteName, onNoteOff])
 
   return {
     isMidiConnected,
     midiDeviceName,
     initializeMidi,
+    releaseAllNotes,
   }
 }
 

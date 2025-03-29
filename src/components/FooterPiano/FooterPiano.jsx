@@ -1,6 +1,6 @@
 // src/components/FooterPiano/FooterPiano.jsx
 
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import {
   PianoContainer,
   PianoUpperHousing,
@@ -30,40 +30,86 @@ const FooterPiano = () => {
   const containerRef = useRef(null)
   const [containerWidth, setContainerWidth] = useState(0)
 
-  // Mouse press tracking
-  const [activeNotes, setActiveNotes] = useState(new Set())
+  // MIDI initialization ref to prevent duplicate initializations
+  const midiInitializedRef = useRef(false)
 
-  // Handle key press
-  const handleKeyDown = note => {
-    if (!activeNotes.has(note)) {
-      const newActiveNotes = new Set(activeNotes)
-      newActiveNotes.add(note)
-      setActiveNotes(newActiveNotes)
+  // Mouse press tracking - using an array for more reliable updates with multiple notes
+  const [activeNotes, setActiveNotes] = useState([])
 
-      // Play the note
-      playNote(note)
-    }
-  }
+  // Keep a reference to the active notes to avoid closure issues
+  const activeNotesRef = useRef(activeNotes)
 
-  // Handle key release
-  const handleKeyUp = note => {
-    if (activeNotes.has(note)) {
-      const newActiveNotes = new Set(activeNotes)
-      newActiveNotes.delete(note)
-      setActiveNotes(newActiveNotes)
-
-      // Stop the note
-      stopNote(note)
-    }
-  }
+  // Update the ref whenever activeNotes changes
+  useEffect(() => {
+    activeNotesRef.current = activeNotes
+  }, [activeNotes])
 
   // Piano audio hook
   const { isAudioStarted, isLoaded, startAudio, playNote, stopNote } = usePianoAudio()
 
-  // MIDI keyboard hook - initialized with our note handlers
+  // Is audio fully ready to play?
+  const isAudioReady = isAudioStarted && isLoaded
+
+  // Handle key press with useCallback to maintain stable reference
+  const handleKeyDown = useCallback(
+    (note, source = 'mouse') => {
+      // Don't check the state from the closure - use the ref for latest value
+      if (!activeNotesRef.current.includes(note)) {
+        setActiveNotes(prevNotes => [...prevNotes, note])
+        playNote(note)
+        console.warn(`Key down: ${note} (${source})`)
+      }
+    },
+    [playNote],
+  )
+
+  // Handle key release with useCallback to maintain stable reference
+  const handleKeyUp = useCallback(
+    (note, source = 'mouse') => {
+      // Don't check the state from the closure - use the ref for latest value
+      if (activeNotesRef.current.includes(note)) {
+        setActiveNotes(prevNotes => prevNotes.filter(n => n !== note))
+        stopNote(note)
+        console.warn(`Key up: ${note} (${source})`)
+      }
+    },
+    [stopNote],
+  )
+
+  // Mouse event handlers for the piano keys
+  const handleMouseDown = useCallback(
+    note => {
+      handleKeyDown(note, 'mouse')
+    },
+    [handleKeyDown],
+  )
+
+  const handleMouseUp = useCallback(
+    note => {
+      handleKeyUp(note, 'mouse')
+    },
+    [handleKeyUp],
+  )
+
+  const handleTouchStart = useCallback(
+    note => {
+      handleKeyDown(note, 'touch')
+    },
+    [handleKeyDown],
+  )
+
+  const handleTouchEnd = useCallback(
+    note => {
+      handleKeyUp(note, 'touch')
+    },
+    [handleKeyUp],
+  )
+
+  // MIDI keyboard hook - initialized with our note handlers and audio ready state
   const { isMidiConnected, midiDeviceName, initializeMidi } = useMidiKeyboard({
-    onNoteOn: handleKeyDown,
-    onNoteOff: handleKeyUp,
+    onNoteOn: note => handleKeyDown(note, 'midi'),
+    onNoteOff: note => handleKeyUp(note, 'midi'),
+    isAudioReady: isAudioReady,
   })
 
   // Check if connected to a Port-1 device
@@ -87,6 +133,16 @@ const FooterPiano = () => {
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
+  // Initialize MIDI when audio is fully loaded
+  useEffect(() => {
+    // Only initialize once when audio becomes ready
+    if (isAudioReady && !midiInitializedRef.current) {
+      console.warn('Audio is fully loaded, initializing MIDI...')
+      midiInitializedRef.current = true
+      initializeMidi()
+    }
+  }, [isAudioReady, initializeMidi])
+
   // Calculate key dimensions
   const whiteKeyWidth = Math.max(containerWidth / whiteKeys.length, 20)
   const blackKeyWidth = whiteKeyWidth * 0.65
@@ -95,9 +151,11 @@ const FooterPiano = () => {
   const handleStartAudio = async () => {
     const audioStarted = await startAudio()
     if (audioStarted) {
-      // Initialize MIDI after audio is started
-      initializeMidi()
+      // We'll initialize MIDI in the useEffect when audio is fully loaded
+      console.warn('Audio started, waiting for samples to load before MIDI initialization...')
+      // Not calling initializeMidi() here as we'll do it in the useEffect when isLoaded becomes true
     }
+    return audioStarted
   }
 
   // Show start button if audio not started
@@ -154,12 +212,12 @@ const FooterPiano = () => {
             <WhiteKey
               key={key.note}
               $width={whiteKeyWidth}
-              $active={activeNotes.has(key.note)}
-              onMouseDown={() => handleKeyDown(key.note)}
-              onMouseUp={() => handleKeyUp(key.note)}
-              onMouseLeave={() => handleKeyUp(key.note)}
-              onTouchStart={() => handleKeyDown(key.note)}
-              onTouchEnd={() => handleKeyUp(key.note)}
+              $active={activeNotes.includes(key.note)}
+              onMouseDown={() => handleMouseDown(key.note)}
+              onMouseUp={() => handleMouseUp(key.note)}
+              onMouseLeave={() => handleMouseUp(key.note)}
+              onTouchStart={() => handleTouchStart(key.note)}
+              onTouchEnd={() => handleTouchEnd(key.note)}
             >
               <KeyLabel $isBlack={false}>
                 <NoteName $isBlack={false}>{noteName}</NoteName>
@@ -179,12 +237,12 @@ const FooterPiano = () => {
               $position={
                 calculateBlackKeyPosition(key.note, whiteKeys, whiteKeyWidth) - blackKeyWidth / 2
               }
-              $active={activeNotes.has(key.note)}
-              onMouseDown={() => handleKeyDown(key.note)}
-              onMouseUp={() => handleKeyUp(key.note)}
-              onMouseLeave={() => handleKeyUp(key.note)}
-              onTouchStart={() => handleKeyDown(key.note)}
-              onTouchEnd={() => handleKeyUp(key.note)}
+              $active={activeNotes.includes(key.note)}
+              onMouseDown={() => handleMouseDown(key.note)}
+              onMouseUp={() => handleMouseUp(key.note)}
+              onMouseLeave={() => handleMouseUp(key.note)}
+              onTouchStart={() => handleTouchStart(key.note)}
+              onTouchEnd={() => handleTouchEnd(key.note)}
             >
               <KeyLabel $isBlack={true}>
                 <NoteName $isBlack={true}>{noteName}</NoteName>
