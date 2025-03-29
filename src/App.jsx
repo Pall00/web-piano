@@ -1,6 +1,6 @@
 // src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { ThemeProvider } from './contexts/ThemeContext'
+import { ThemeProvider } from './contexts/ThemeProvider'
 import Header from './components/Header'
 import GlobalStyles from './styles/GlobalStyles'
 

@@ -1,5 +1,4 @@
 // src/pages/Home.jsx
-import React from 'react'
 import styled from 'styled-components'
 
 const HomeContainer = styled.div`

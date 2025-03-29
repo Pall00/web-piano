@@ -1,5 +1,5 @@
 // src/components/ThemeToggle/ThemeToggle.jsx
-import { useTheme } from '../../contexts/ThemeContext'
+import { useTheme } from '../../hooks/useTheme'
 import { ToggleWrapper, ToggleTrack, ToggleThumb, ToggleLabel } from './ThemeToggle.styles'
 
 const ThemeToggle = ({ showLabel = false }) => {

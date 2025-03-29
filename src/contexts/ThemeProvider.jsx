@@ -1,9 +1,8 @@
-// src/contexts/ThemeContext.jsx
-import { createContext, useContext, useState, useEffect } from 'react'
+// src/contexts/ThemeProvider.jsx
+import { useState, useEffect } from 'react'
 import { ThemeProvider as StyledThemeProvider } from 'styled-components'
 import { lightTheme, darkTheme, extendTheme } from '../styles/theme'
-
-const ThemeContext = createContext()
+import { ThemeContext } from './themeContext'
 
 export const ThemeProvider = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -29,4 +28,4 @@ export const ThemeProvider = ({ children }) => {
   )
 }
 
-export const useTheme = () => useContext(ThemeContext)
+export default ThemeProvider
