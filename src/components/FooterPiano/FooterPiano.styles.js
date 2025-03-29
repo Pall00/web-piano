@@ -136,3 +136,19 @@ export const LoadingIndicator = styled.div`
     animation: ${spin} 1s ease-in-out infinite;
   }
 `
+export const MidiIndicator = styled.div`
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: ${props => (props.$isPort1 ? '#4CAF50' : '#FFC107')};
+  font-size: 12px;
+  border-radius: 4px;
+  z-index: 10;
+
+  &::before {
+    content: '🎹';
+    margin-right: 4px;
+  }
+`

@@ -1,3 +1,5 @@
+// src/components/FooterPiano/FooterPiano.jsx
+
 import { useRef, useState, useEffect } from 'react'
 import {
   PianoContainer,
@@ -7,9 +9,11 @@ import {
   KeyLabel,
   StartAudioButton,
   LoadingIndicator,
+  MidiIndicator, // New import for MIDI status
 } from './FooterPiano.styles'
 import { generatePianoKeys, calculateBlackKeyPosition } from './utils/pianoUtils'
 import usePianoAudio from './hooks/usePianoAudio'
+import useMidiKeyboard from './hooks/useMidiKeyboard' // Import the new hook
 
 const FooterPiano = ({ showLabels = false }) => {
   // Piano keys data
@@ -21,28 +25,8 @@ const FooterPiano = ({ showLabels = false }) => {
   const containerRef = useRef(null)
   const [containerWidth, setContainerWidth] = useState(0)
 
-  // Piano audio hook
-  const { isAudioStarted, isLoaded, startAudio, playNote, stopNote } = usePianoAudio()
-
   // Mouse press tracking
   const [activeNotes, setActiveNotes] = useState(new Set())
-
-  // Handle window resize
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth)
-      }
-    }
-
-    updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
-  }, [])
-
-  // Calculate key dimensions
-  const whiteKeyWidth = Math.max(containerWidth / whiteKeys.length, 20)
-  const blackKeyWidth = whiteKeyWidth * 0.65
 
   // Handle key press
   const handleKeyDown = note => {
@@ -68,11 +52,54 @@ const FooterPiano = ({ showLabels = false }) => {
     }
   }
 
+  // Piano audio hook
+  const { isAudioStarted, isLoaded, startAudio, playNote, stopNote } = usePianoAudio()
+
+  // MIDI keyboard hook - initialized with our note handlers
+  const { isMidiConnected, midiDeviceName, initializeMidi } = useMidiKeyboard({
+    onNoteOn: handleKeyDown,
+    onNoteOff: handleKeyUp,
+  })
+
+  // Check if connected to a Port-1 device
+  const isPort1Device =
+    midiDeviceName &&
+    (midiDeviceName.toLowerCase().includes('port 1') ||
+      midiDeviceName.toLowerCase().includes('port1') ||
+      midiDeviceName.toLowerCase().includes('midi 1') ||
+      midiDeviceName.toLowerCase().includes('midi1'))
+
+  // Handle window resize
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.offsetWidth)
+      }
+    }
+
+    updateDimensions()
+    window.addEventListener('resize', updateDimensions)
+    return () => window.removeEventListener('resize', updateDimensions)
+  }, [])
+
+  // Calculate key dimensions
+  const whiteKeyWidth = Math.max(containerWidth / whiteKeys.length, 20)
+  const blackKeyWidth = whiteKeyWidth * 0.65
+
+  // Combined function to start audio and MIDI
+  const handleStartAudio = async () => {
+    const audioStarted = await startAudio()
+    if (audioStarted) {
+      // Initialize MIDI after audio is started
+      initializeMidi()
+    }
+  }
+
   // Show start button if audio not started
   if (!isAudioStarted) {
     return (
       <PianoContainer ref={containerRef}>
-        <StartAudioButton onClick={startAudio}>Click to Start Piano</StartAudioButton>
+        <StartAudioButton onClick={handleStartAudio}>Click to Start Piano</StartAudioButton>
       </PianoContainer>
     )
   }
@@ -91,6 +118,9 @@ const FooterPiano = ({ showLabels = false }) => {
 
   return (
     <PianoContainer ref={containerRef}>
+      {isMidiConnected && (
+        <MidiIndicator $isPort1={isPort1Device}>MIDI: {midiDeviceName}</MidiIndicator>
+      )}
       <WhiteKeysContainer>
         {/* White keys */}
         {whiteKeys.map(key => (
