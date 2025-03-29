@@ -1,5 +1,5 @@
 // src/components/FooterPiano/hooks/useMidiKeyboard.js
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 
 /**
  * A simplified hook for connecting to MIDI keyboards
@@ -96,7 +96,7 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
       const connectToDevice = () => {
         const inputs = Array.from(midiAccess.inputs.values())
         if (inputs.length === 0) {
-          console.log('No MIDI devices found')
+          console.warn('No MIDI devices found')
           setIsMidiConnected(false)
           setMidiDeviceName('')
           return false
@@ -111,7 +111,7 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
         device.onmidimessage = handleMidiMessage
         setMidiDeviceName(device.name || 'MIDI Keyboard')
         setIsMidiConnected(true)
-        console.log(`Connected to MIDI device: ${device.name}${port1Device ? ' (Port-1)' : ''}`)
+        console.warn(`Connected to MIDI device: ${device.name}${port1Device ? ' (Port-1)' : ''}`)
         return true
       }
 
@@ -122,11 +122,11 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
       midiAccess.onstatechange = event => {
         if (event.port.type === 'input') {
           if (event.port.state === 'connected') {
-            console.log(`MIDI device connected: ${event.port.name}`)
+            console.warn(`MIDI device connected: ${event.port.name}`)
 
             // If the newly connected device is Port-1, prioritize connecting to it
             if (isPort1Device(event.port.name)) {
-              console.log('Port-1 device detected, prioritizing connection')
+              console.warn('Port-1 device detected, prioritizing connection')
               // Small timeout to ensure the device is ready
               setTimeout(() => connectToDevice(), 100)
             } else if (!isMidiConnected) {
@@ -134,7 +134,7 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
               connectToDevice()
             }
           } else if (event.port.state === 'disconnected') {
-            console.log(`MIDI device disconnected: ${event.port.name}`)
+            console.warn(`MIDI device disconnected: ${event.port.name}`)
             // If our current device was disconnected
             if (midiDeviceName === event.port.name) {
               setIsMidiConnected(false)
@@ -151,7 +151,7 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff }) => {
       console.error('Failed to initialize MIDI:', error)
       return false
     }
-  }, [handleMidiMessage, midiDeviceName])
+  }, [handleMidiMessage, midiDeviceName, isMidiConnected])
 
   return {
     isMidiConnected,
