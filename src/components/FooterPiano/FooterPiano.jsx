@@ -10,6 +10,8 @@ import {
   WhiteKey,
   BlackKey,
   KeyLabel,
+  NoteName,
+  OctaveNumber,
   StartAudioButton,
   LoadingIndicator,
   MidiIndicator,
@@ -18,7 +20,7 @@ import { generatePianoKeys, calculateBlackKeyPosition } from './utils/pianoUtils
 import usePianoAudio from './hooks/usePianoAudio'
 import useMidiKeyboard from './hooks/useMidiKeyboard'
 
-const FooterPiano = ({ showLabels = false }) => {
+const FooterPiano = () => {
   // Piano keys data
   const pianoKeys = generatePianoKeys()
   const whiteKeys = pianoKeys.filter(key => !key.isBlack)
@@ -119,6 +121,19 @@ const FooterPiano = ({ showLabels = false }) => {
     )
   }
 
+  // Helper function to split the note into noteName and octave
+  const splitNote = note => {
+    // Extract note and octave (e.g. "C4" -> "C" and "4")
+    const noteMatch = note.match(/^([A-G][#]?)(\d+)$/)
+    if (noteMatch) {
+      return {
+        noteName: noteMatch[1],
+        octave: noteMatch[2],
+      }
+    }
+    return { noteName: note, octave: '' }
+  }
+
   return (
     <PianoContainer ref={containerRef}>
       <PianoUpperHousing>
@@ -133,43 +148,51 @@ const FooterPiano = ({ showLabels = false }) => {
 
       <WhiteKeysContainer>
         {/* White keys */}
-        {whiteKeys.map(key => (
-          <WhiteKey
-            key={key.note}
-            $width={whiteKeyWidth}
-            $active={activeNotes.has(key.note)}
-            onMouseDown={() => handleKeyDown(key.note)}
-            onMouseUp={() => handleKeyUp(key.note)}
-            onMouseLeave={() => handleKeyUp(key.note)}
-            onTouchStart={() => handleKeyDown(key.note)}
-            onTouchEnd={() => handleKeyUp(key.note)}
-          >
-            <KeyLabel $isBlack={false} $showLabels={showLabels}>
-              {key.note}
-            </KeyLabel>
-          </WhiteKey>
-        ))}
+        {whiteKeys.map(key => {
+          const { noteName, octave } = splitNote(key.note)
+          return (
+            <WhiteKey
+              key={key.note}
+              $width={whiteKeyWidth}
+              $active={activeNotes.has(key.note)}
+              onMouseDown={() => handleKeyDown(key.note)}
+              onMouseUp={() => handleKeyUp(key.note)}
+              onMouseLeave={() => handleKeyUp(key.note)}
+              onTouchStart={() => handleKeyDown(key.note)}
+              onTouchEnd={() => handleKeyUp(key.note)}
+            >
+              <KeyLabel $isBlack={false}>
+                <NoteName $isBlack={false}>{noteName}</NoteName>
+                <OctaveNumber $isBlack={false}>{octave}</OctaveNumber>
+              </KeyLabel>
+            </WhiteKey>
+          )
+        })}
 
         {/* Black keys */}
-        {blackKeys.map(key => (
-          <BlackKey
-            key={key.note}
-            $width={blackKeyWidth}
-            $position={
-              calculateBlackKeyPosition(key.note, whiteKeys, whiteKeyWidth) - blackKeyWidth / 2
-            }
-            $active={activeNotes.has(key.note)}
-            onMouseDown={() => handleKeyDown(key.note)}
-            onMouseUp={() => handleKeyUp(key.note)}
-            onMouseLeave={() => handleKeyUp(key.note)}
-            onTouchStart={() => handleKeyDown(key.note)}
-            onTouchEnd={() => handleKeyUp(key.note)}
-          >
-            <KeyLabel $isBlack={true} $showLabels={showLabels}>
-              {key.note}
-            </KeyLabel>
-          </BlackKey>
-        ))}
+        {blackKeys.map(key => {
+          const { noteName, octave } = splitNote(key.note)
+          return (
+            <BlackKey
+              key={key.note}
+              $width={blackKeyWidth}
+              $position={
+                calculateBlackKeyPosition(key.note, whiteKeys, whiteKeyWidth) - blackKeyWidth / 2
+              }
+              $active={activeNotes.has(key.note)}
+              onMouseDown={() => handleKeyDown(key.note)}
+              onMouseUp={() => handleKeyUp(key.note)}
+              onMouseLeave={() => handleKeyUp(key.note)}
+              onTouchStart={() => handleKeyDown(key.note)}
+              onTouchEnd={() => handleKeyUp(key.note)}
+            >
+              <KeyLabel $isBlack={true}>
+                <NoteName $isBlack={true}>{noteName}</NoteName>
+                <OctaveNumber $isBlack={true}>{octave}</OctaveNumber>
+              </KeyLabel>
+            </BlackKey>
+          )
+        })}
       </WhiteKeysContainer>
     </PianoContainer>
   )

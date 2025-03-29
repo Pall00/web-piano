@@ -1,5 +1,4 @@
 // src/components/FooterPiano/FooterPiano.styles.js
-// Add these new styled components
 import styled, { keyframes } from 'styled-components'
 
 export const PianoContainer = styled.div`
@@ -126,17 +125,50 @@ export const StartAudioButton = styled.button`
   }
 `
 
-export const KeyLabel = styled.span`
+// Updated KeyLabel components
+export const KeyLabel = styled.div`
   position: absolute;
   bottom: 5px;
   left: 0;
   right: 0;
   text-align: center;
-  font-size: 10px;
-  color: ${props => (props.$isBlack ? '#fff' : '#333')};
   pointer-events: none;
-  display: ${props => (props.$showLabels ? 'block' : 'none')};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 5;
+
+  /* Adjust position for black keys */
+  ${props =>
+    props.$isBlack &&
+    `
+    bottom: 3px;
+  `}
 `
+
+export const NoteName = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  color: ${props => (props.$isBlack ? '#fff' : '#222')};
+  line-height: 1;
+  display: block;
+  user-select: none; /* Prevent text selection */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* IE/Edge */
+`
+
+export const OctaveNumber = styled.span`
+  font-size: 8px;
+  color: ${props => (props.$isBlack ? '#ccc' : '#666')};
+  line-height: 1;
+  display: block;
+  user-select: none; /* Prevent text selection */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* IE/Edge */
+`
+
 // Add spinning animation
 const spin = keyframes`
   0% { transform: rotate(0deg); }
