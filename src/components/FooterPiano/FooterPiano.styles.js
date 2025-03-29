@@ -147,7 +147,7 @@ export const KeyLabel = styled.div`
 `
 
 export const NoteName = styled.span`
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: ${props => (props.$isBlack ? '#fff' : '#222')};
   line-height: 1;
@@ -159,7 +159,7 @@ export const NoteName = styled.span`
 `
 
 export const OctaveNumber = styled.span`
-  font-size: 8px;
+  font-size: 9px;
   color: ${props => (props.$isBlack ? '#ccc' : '#666')};
   line-height: 1;
   display: block;
