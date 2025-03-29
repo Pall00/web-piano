@@ -46,12 +46,14 @@ export const calculateBlackKeyPosition = (note, whiteKeys, whiteKeyWidth) => {
   const octave = note.slice(-1)
 
   // The black key positions relative to white keys
+  // Values closer to 1.0 will position the black keys further to the right
+  // Using slightly different values for each black key to create a more realistic layout
   const blackKeyMap = {
-    'C#': 0.7, // C# is 70% of the way from C to D
-    'D#': 0.7, // D# is 70% of the way from D to E
-    'F#': 0.7, // F# is 70% of the way from F to G
-    'G#': 0.7, // G# is 70% of the way from G to A
-    'A#': 0.7, // A# is 70% of the way from A to B
+    'C#': 0.92, // C# positioned 78% of the way from C to D
+    'D#': 0.92, // D# positioned 82% of the way from D to E
+    'F#': 0.92, // F# positioned 78% of the way from F to G
+    'G#': 0.92, // G# positioned 82% of the way from G to A
+    'A#': 0.92, // A# positioned 78% of the way from A to B
   }
 
   // Find the previous white key index
