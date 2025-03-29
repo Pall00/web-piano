@@ -24,7 +24,7 @@
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.4.1",
     "styled-components": "^6.1.16",
-    "tone": "^14.7.77",
+    "tone": "^14.9.17",
     "vexflow": "^1.2.93",
     "webmidi": "^3.1.6"
   },

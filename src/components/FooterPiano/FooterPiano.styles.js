@@ -1,5 +1,5 @@
 // src/components/FooterPiano/FooterPiano.styles.js
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 
 export const PianoContainer = styled.div`
   position: fixed;
@@ -37,14 +37,14 @@ export const WhiteKeysContainer = styled.div`
   min-width: max-content;
 `
 
-// Using .attrs for frequently changed styles
+// Add styles for active state
 export const WhiteKey = styled.div.attrs(props => ({
   style: {
     width: `${props.$width}px`,
   },
 }))`
   height: 100%;
-  background-color: white;
+  background-color: ${props => (props.$active ? '#e0e8ff' : 'white')};
   border: 1px solid #ddd;
   border-radius: 0 0 4px 4px;
   box-sizing: border-box;
@@ -57,7 +57,6 @@ export const WhiteKey = styled.div.attrs(props => ({
   }
 `
 
-// Using .attrs for frequently changed styles
 export const BlackKey = styled.div.attrs(props => ({
   style: {
     width: `${props.$width}px`,
@@ -66,7 +65,7 @@ export const BlackKey = styled.div.attrs(props => ({
 }))`
   position: absolute;
   height: 65%;
-  background-color: #222;
+  background-color: ${props => (props.$active ? '#555' : '#222')};
   border-radius: 0 0 3px 3px;
   box-sizing: border-box;
   z-index: 1;
@@ -76,6 +75,25 @@ export const BlackKey = styled.div.attrs(props => ({
 
   &:active {
     background-color: #555;
+  }
+`
+
+// Add Start Audio button
+export const StartAudioButton = styled.button`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 24px;
+  background-color: #3e74bc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1.2rem;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #2a4d7f;
   }
 `
 
@@ -89,4 +107,32 @@ export const KeyLabel = styled.span`
   color: ${props => (props.$isBlack ? '#fff' : '#333')};
   pointer-events: none;
   display: ${props => (props.$showLabels ? 'block' : 'none')};
+`
+// Add spinning animation
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`
+
+// Add loading indicator styles
+export const LoadingIndicator = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  font-size: 1.2rem;
+
+  .spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: ${spin} 1s ease-in-out infinite;
+  }
 `
