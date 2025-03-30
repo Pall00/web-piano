@@ -14,7 +14,7 @@ const FlashcardControls = ({ onPrev, onNext, currentIndex, totalCards }) => {
       <ControlsInner>
         <motion.div whileTap={{ scale: 0.95 }}>
           <NavButton onClick={onPrev} $direction="prev">
-            ← Previous
+            ⬅ Previous
           </NavButton>
         </motion.div>
 
@@ -26,7 +26,7 @@ const FlashcardControls = ({ onPrev, onNext, currentIndex, totalCards }) => {
 
         <motion.div whileTap={{ scale: 0.95 }}>
           <NavButton onClick={onNext} $direction="next">
-            Next →
+            Next ➡
           </NavButton>
         </motion.div>
       </ControlsInner>

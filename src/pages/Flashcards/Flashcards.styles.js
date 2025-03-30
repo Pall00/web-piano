@@ -9,13 +9,15 @@ export const FlashcardsContainer = styled.div`
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  align-items: center; // Center align all content
 `
 
 export const PageTitle = styled.h1`
-  margin-bottom: ${({ theme }) => theme.spacing(6)};
+  margin-bottom: ${({ theme }) => theme.spacing(8)};
   color: ${({ theme }) => theme.colors.text.primary};
   text-align: center;
   font-size: 3rem;
+  width: 100%;
 `
 
 export const FlashcardSection = styled.div`

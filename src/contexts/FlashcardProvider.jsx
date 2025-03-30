@@ -1,4 +1,4 @@
-// src/contexts/FlashcardProvider.jsx
+// src/contexts/FlashcardProvider.jsx - Fixed version
 import { useState, useEffect } from 'react'
 import { FlashcardContext } from './flashcardContext'
 import { initialFlashcardSets } from '../data/flashcardsData'
@@ -59,6 +59,7 @@ export const FlashcardProvider = ({ children }) => {
         flashcardSets,
         activeSetId,
         currentCard,
+        currentCardIndex, // Add currentCardIndex to the context
         selectCardSet,
         nextCard,
         prevCard,
