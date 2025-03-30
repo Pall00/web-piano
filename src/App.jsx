@@ -1,10 +1,12 @@
 // src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from './contexts/ThemeProvider'
+import { FlashcardProvider } from './contexts/FlashcardProvider'
 import Header from './components/Header'
 import GlobalStyles from './styles/GlobalStyles'
 import FooterPiano from './components/FooterPiano'
 import Home from './pages/Home'
+import Flashcards from './pages/Flashcards'
 
 function App() {
   return (
@@ -18,7 +20,11 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route
                 path="/flashcards"
-                element={<div className="content-page">Flashcards Page</div>}
+                element={
+                  <FlashcardProvider>
+                    <Flashcards />
+                  </FlashcardProvider>
+                }
               />
               <Route path="/notation" element={<div className="content-page">Notation Page</div>} />
               <Route
