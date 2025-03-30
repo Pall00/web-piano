@@ -1,51 +1,64 @@
 // src/pages/Flashcards/Flashcards.jsx
-import { useState } from 'react'
-import { FlashcardsContainer, PageTitle, FlashcardWrapper } from './Flashcards.styles'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  FlashcardsContainer,
+  PageTitle,
+  FlashcardSection,
+  NoCardsMessage,
+} from './Flashcards.styles'
 import { useFlashcards } from '../../hooks/useFlashcards'
+import Flashcard from '../../components/Flashcard'
+import CategorySelector from '../../components/CategorySelector'
+import FlashcardControls from '../../components/FlashcardControls'
 
 const Flashcards = () => {
-  const { currentCard, nextCard, flashcardSets } = useFlashcards()
-  const [flipped, setFlipped] = useState(false)
+  const {
+    currentCard,
+    nextCard,
+    prevCard,
+    flashcardSets,
+    activeSetId,
+    selectCardSet,
+    currentCardIndex,
+  } = useFlashcards()
 
-  const handleCardClick = () => {
-    setFlipped(!flipped)
-  }
-
-  const handleNextCard = () => {
-    setFlipped(false)
-    nextCard()
-  }
+  const activeSet = flashcardSets.find(set => set.id === activeSetId)
+  const totalCards = activeSet?.cards?.length || 0
 
   return (
     <FlashcardsContainer>
       <PageTitle>Piano Flashcards</PageTitle>
 
-      {currentCard ? (
-        <FlashcardWrapper>
-          <div className={`flashcard ${flipped ? 'flipped' : ''}`} onClick={handleCardClick}>
-            <div className="flashcard-front">
-              <h3>Question</h3>
-              <p>{currentCard.question}</p>
-            </div>
-            <div className="flashcard-back">
-              <h3>Answer</h3>
-              <p>{currentCard.answer}</p>
-            </div>
-          </div>
-          <button onClick={handleNextCard}>Next Card</button>
-        </FlashcardWrapper>
-      ) : (
-        <p>No flashcards available. Select a category to begin.</p>
-      )}
+      <CategorySelector
+        categories={flashcardSets}
+        activeCategory={activeSetId}
+        onSelectCategory={selectCardSet}
+      />
 
-      <div className="set-selection">
-        <h3>Available Sets</h3>
-        <ul>
-          {flashcardSets.map(set => (
-            <li key={set.id}>{set.name}</li>
-          ))}
-        </ul>
-      </div>
+      <FlashcardSection>
+        <AnimatePresence mode="wait">
+          {currentCard ? (
+            <motion.div
+              key={currentCard.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Flashcard card={currentCard} />
+
+              <FlashcardControls
+                onPrev={prevCard}
+                onNext={nextCard}
+                currentIndex={currentCardIndex}
+                totalCards={totalCards}
+              />
+            </motion.div>
+          ) : (
+            <NoCardsMessage>No flashcards available. Select a category to begin.</NoCardsMessage>
+          )}
+        </AnimatePresence>
+      </FlashcardSection>
     </FlashcardsContainer>
   )
 }

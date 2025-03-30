@@ -71,4 +71,37 @@ export const initialFlashcardSets = [
       },
     ],
   },
+  {
+    id: 'basic-chords',
+    name: 'Basic Chords',
+    description: 'Learn to identify and play basic piano chords',
+    difficulty: 'intermediate',
+    cards: [
+      {
+        id: 'chord-1',
+        question: 'What notes make up a C Major chord?',
+        answer: 'C, E, G',
+      },
+      {
+        id: 'chord-2',
+        question: 'What notes make up a G Major chord?',
+        answer: 'G, B, D',
+      },
+      {
+        id: 'chord-3',
+        question: 'What notes make up a D Minor chord?',
+        answer: 'D, F, A',
+      },
+      {
+        id: 'chord-4',
+        question: 'What notes make up an F Major chord?',
+        answer: 'F, A, C',
+      },
+      {
+        id: 'chord-5',
+        question: 'What notes make up an A Minor chord?',
+        answer: 'A, C, E',
+      },
+    ],
+  },
 ]
