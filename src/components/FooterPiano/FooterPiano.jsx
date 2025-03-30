@@ -15,6 +15,7 @@ import {
   StartAudioButton,
   LoadingIndicator,
   MidiIndicator,
+  SustainIndicator,
 } from './FooterPiano.styles'
 import { generatePianoKeys, calculateBlackKeyPosition } from './utils/pianoUtils'
 import usePianoAudio from './hooks/usePianoAudio'
@@ -45,7 +46,8 @@ const FooterPiano = () => {
   }, [activeNotes])
 
   // Piano audio hook
-  const { isAudioStarted, isLoaded, startAudio, playNote, stopNote } = usePianoAudio()
+  const { isAudioStarted, isLoaded, isSustainActive, startAudio, setSustain, playNote, stopNote } =
+    usePianoAudio()
 
   // Is audio fully ready to play?
   const isAudioReady = isAudioStarted && isLoaded
@@ -109,6 +111,7 @@ const FooterPiano = () => {
   const { isMidiConnected, midiDeviceName, initializeMidi } = useMidiKeyboard({
     onNoteOn: note => handleKeyDown(note, 'midi'),
     onNoteOff: note => handleKeyUp(note, 'midi'),
+    onSustainChange: isActive => setSustain(isActive),
     isAudioReady: isAudioReady,
   })
 
@@ -200,6 +203,7 @@ const FooterPiano = () => {
           {isMidiConnected && (
             <MidiIndicator $isPort1={isPort1Device}>MIDI: {midiDeviceName}</MidiIndicator>
           )}
+          <SustainIndicator className={isSustainActive ? 'active' : ''}>Sustain</SustainIndicator>
           {/* Future controls would go here */}
         </ControlsContainer>
       </PianoUpperHousing>

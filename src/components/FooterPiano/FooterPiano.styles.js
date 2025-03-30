@@ -210,3 +210,21 @@ export const MidiIndicator = styled.div`
     margin-right: 4px;
   }
 `
+export const SustainIndicator = styled.div`
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  border-radius: 4px;
+  margin-left: 8px;
+  transition: color 0.2s ease;
+  color: #aaaaaa; /* Default color - gray */
+
+  &.active {
+    color: #4caf50; /* Active color - green */
+  }
+
+  &::before {
+    content: '🎹';
+    margin-right: 4px;
+  }
+`

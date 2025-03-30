@@ -1,10 +1,15 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import * as Tone from 'tone'
 
 const usePianoAudio = () => {
   const [isAudioStarted, setIsAudioStarted] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
   const [sampler, setSampler] = useState(null)
+  const [isSustainActive, setIsSustainActive] = useState(false)
+
+  // Track sustained notes and current sustain state with refs for immediate access
+  const sustainedNotesRef = useRef(new Set())
+  const sustainActiveRef = useRef(false) // Added ref for immediate access to sustain state
 
   // Initialize sampler after component mounts
   useEffect(() => {
@@ -77,6 +82,13 @@ const usePianoAudio = () => {
   const playNote = useCallback(
     note => {
       if (sampler && isAudioStarted && isLoaded) {
+        // If the note was in the sustained notes list, remove it
+        // (because we're playing it again)
+        if (sustainedNotesRef.current.has(note)) {
+          sustainedNotesRef.current.delete(note)
+        }
+
+        // Play the note
         sampler.triggerAttack(note)
       }
     },
@@ -86,8 +98,43 @@ const usePianoAudio = () => {
   // Stop a note
   const stopNote = useCallback(
     note => {
-      if (sampler && isAudioStarted && isLoaded) {
+      if (!sampler || !isAudioStarted || !isLoaded) return
+
+      // Check if sustain is active using the ref for immediate access
+      if (sustainActiveRef.current) {
+        // If sustain is active, add the note to the sustained notes list
+        console.warn(`Sustaining note: ${note}`)
+        sustainedNotesRef.current.add(note)
+      } else {
+        // If sustain is not active, release the note immediately
+        console.warn(`Releasing note: ${note}`)
         sampler.triggerRelease(note)
+      }
+    },
+    [sampler, isAudioStarted, isLoaded],
+  )
+
+  // Set sustain state
+  const setSustain = useCallback(
+    isActive => {
+      // Update both the state (for UI) and the ref (for immediate access)
+      setIsSustainActive(isActive)
+      sustainActiveRef.current = isActive
+
+      console.warn(`Sustain pedal: ${isActive ? 'ON' : 'OFF'}`)
+
+      // When releasing the sustain pedal, release all sustained notes
+      if (!isActive && sustainedNotesRef.current.size > 0) {
+        if (sampler && isAudioStarted && isLoaded) {
+          const notesToRelease = Array.from(sustainedNotesRef.current)
+          console.warn('Releasing sustained notes:', notesToRelease)
+
+          // Release all sustained notes using Tone.js
+          sampler.triggerRelease(notesToRelease)
+
+          // Clear the sustained notes set
+          sustainedNotesRef.current.clear()
+        }
       }
     },
     [sampler, isAudioStarted, isLoaded],
@@ -96,7 +143,9 @@ const usePianoAudio = () => {
   return {
     isAudioStarted,
     isLoaded,
+    isSustainActive,
     startAudio,
+    setSustain,
     playNote,
     stopNote,
   }

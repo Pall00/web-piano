@@ -2,10 +2,14 @@
 import { useState, useCallback, useRef } from 'react'
 
 /**
- * A simplified hook for connecting to MIDI keyboards
- * Automatically connects to the first available MIDI device
+ * A hook for connecting to MIDI keyboards with sustain pedal support
  */
-const useMidiKeyboard = ({ onNoteOn, onNoteOff, isAudioReady = false }) => {
+const useMidiKeyboard = ({
+  onNoteOn,
+  onNoteOff,
+  onSustainChange, // New callback for sustain pedal
+  isAudioReady = false,
+}) => {
   const [isMidiConnected, setIsMidiConnected] = useState(false)
   const [midiDeviceName, setMidiDeviceName] = useState('')
 
@@ -49,34 +53,49 @@ const useMidiKeyboard = ({ onNoteOn, onNoteOff, isAudioReady = false }) => {
         return
       }
 
-      // Extract MIDI data: [command, note, velocity]
-      const [command, note, velocity] = event.data
-      const noteName = midiNoteToNoteName(note)
+      // Extract MIDI data: [command, data, value]
+      const [command, data, value] = event.data
 
+      // Handle Control Change messages (command: 176-191)
+      if (command >= 176 && command <= 191) {
+        // CC #64 is the sustain pedal
+        if (data === 64) {
+          // Sustain pedal values: >= 64 is on, < 64 is off
+          const isSustainOn = value >= 64
+          console.warn(`MIDI Sustain Pedal: ${isSustainOn ? 'ON' : 'OFF'} (value: ${value})`)
+          if (onSustainChange) onSustainChange(isSustainOn)
+          return
+        }
+        // Add more CC message handling here if needed
+        return
+      }
+
+      // Note messages handling (existing code)
+      const noteName = midiNoteToNoteName(data)
       if (!noteName) return // Invalid note
 
       // Note on event (command: 144-159 with velocity > 0)
-      if (command >= 144 && command <= 159 && velocity > 0) {
+      if (command >= 144 && command <= 159 && value > 0) {
         // Check if we've already processed this note
-        if (!activeNotesRef.current.has(note)) {
-          activeNotesRef.current.add(note)
-          console.warn(`MIDI Note On: ${noteName} (velocity: ${velocity})`)
+        if (!activeNotesRef.current.has(data)) {
+          activeNotesRef.current.add(data)
+          console.warn(`MIDI Note On: ${noteName} (velocity: ${value})`)
           if (onNoteOn) onNoteOn(noteName)
         }
       }
       // Note off event (command: 128-143 or note-on with velocity 0)
       else if (
         (command >= 128 && command <= 143) ||
-        (command >= 144 && command <= 159 && velocity === 0)
+        (command >= 144 && command <= 159 && value === 0)
       ) {
-        if (activeNotesRef.current.has(note)) {
-          activeNotesRef.current.delete(note)
+        if (activeNotesRef.current.has(data)) {
+          activeNotesRef.current.delete(data)
           console.warn(`MIDI Note Off: ${noteName}`)
           if (onNoteOff) onNoteOff(noteName)
         }
       }
     },
-    [onNoteOn, onNoteOff, midiNoteToNoteName, isAudioReady],
+    [onNoteOn, onNoteOff, onSustainChange, midiNoteToNoteName, isAudioReady],
   )
 
   /**
