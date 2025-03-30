@@ -34,16 +34,15 @@ const FooterPiano = () => {
   // MIDI initialization ref to prevent duplicate initializations
   const midiInitializedRef = useRef(false)
 
-  // Mouse press tracking - using an array for more reliable updates with multiple notes
-  const [activeNotes, setActiveNotes] = useState([])
+  // ==========================================
+  // Keyboard Interaction Logic (from old piano)
+  // ==========================================
 
-  // Keep a reference to the active notes to avoid closure issues
-  const activeNotesRef = useRef(activeNotes)
+  // Mouse state tracking
+  const [mouseIsDown, setMouseIsDown] = useState(false)
 
-  // Update the ref whenever activeNotes changes
-  useEffect(() => {
-    activeNotesRef.current = activeNotes
-  }, [activeNotes])
+  // Track touched notes using a Set for efficient lookups
+  const [touchedNotes, setTouchedNotes] = useState(new Set())
 
   // Piano audio hook
   const { isAudioStarted, isLoaded, isSustainActive, startAudio, setSustain, playNote, stopNote } =
@@ -52,65 +51,168 @@ const FooterPiano = () => {
   // Is audio fully ready to play?
   const isAudioReady = isAudioStarted && isLoaded
 
-  // Handle key press with useCallback to maintain stable reference
-  const handleKeyDown = useCallback(
-    (note, source = 'mouse') => {
-      // Don't check the state from the closure - use the ref for latest value
-      if (!activeNotesRef.current.includes(note)) {
-        setActiveNotes(prevNotes => [...prevNotes, note])
-        playNote(note)
-        console.warn(`Key down: ${note} (${source})`)
-      }
+  // Check if a note is being touched
+  const isTouched = useCallback(
+    note => {
+      return touchedNotes.has(note)
+    },
+    [touchedNotes],
+  )
+
+  // Get a stable function to check if a note is active
+  const isNoteActive = useCallback(
+    note => {
+      // A note is active if it's being touched
+      return isTouched(note)
+    },
+    [isTouched],
+  )
+
+  // Mouse event handlers
+  const handleMouseDown = useCallback(
+    note => {
+      setMouseIsDown(true)
+      setTouchedNotes(prev => {
+        const newSet = new Set(prev)
+        newSet.add(note)
+        return newSet
+      })
+      playNote(note)
+      console.warn(`Key down: ${note} (mouse)`)
     },
     [playNote],
   )
 
-  // Handle key release with useCallback to maintain stable reference
-  const handleKeyUp = useCallback(
-    (note, source = 'mouse') => {
-      // Don't check the state from the closure - use the ref for latest value
-      if (activeNotesRef.current.includes(note)) {
-        setActiveNotes(prevNotes => prevNotes.filter(n => n !== note))
-        stopNote(note)
-        console.warn(`Key up: ${note} (${source})`)
-      }
-    },
-    [stopNote],
-  )
-
-  // Mouse event handlers for the piano keys
-  const handleMouseDown = useCallback(
-    note => {
-      handleKeyDown(note, 'mouse')
-    },
-    [handleKeyDown],
-  )
-
   const handleMouseUp = useCallback(
     note => {
-      handleKeyUp(note, 'mouse')
+      setMouseIsDown(false)
+      setTouchedNotes(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(note)
+        return newSet
+      })
+
+      if (!isSustainActive) {
+        stopNote(note)
+        console.warn(`Key up: ${note} (mouse)`)
+      }
     },
-    [handleKeyUp],
+    [isSustainActive, stopNote],
   )
 
+  const handleMouseEnter = useCallback(
+    note => {
+      if (mouseIsDown) {
+        setTouchedNotes(prev => {
+          const newSet = new Set(prev)
+          newSet.add(note)
+          return newSet
+        })
+        playNote(note)
+        console.warn(`Mouse enter key: ${note}`)
+      }
+    },
+    [mouseIsDown, playNote],
+  )
+
+  const handleMouseLeave = useCallback(
+    note => {
+      if (mouseIsDown && !isSustainActive) {
+        setTouchedNotes(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(note)
+          return newSet
+        })
+        stopNote(note)
+        console.warn(`Mouse leave key: ${note}`)
+      }
+    },
+    [mouseIsDown, isSustainActive, stopNote],
+  )
+
+  // Touch event handlers
   const handleTouchStart = useCallback(
     note => {
-      handleKeyDown(note, 'touch')
+      setTouchedNotes(prev => {
+        const newSet = new Set(prev)
+        newSet.add(note)
+        return newSet
+      })
+      playNote(note)
+      console.warn(`Touch start: ${note}`)
     },
-    [handleKeyDown],
+    [playNote],
   )
 
   const handleTouchEnd = useCallback(
     note => {
-      handleKeyUp(note, 'touch')
+      setTouchedNotes(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(note)
+        return newSet
+      })
+      if (!isSustainActive) {
+        stopNote(note)
+        console.warn(`Touch end: ${note}`)
+      }
     },
-    [handleKeyUp],
+    [isSustainActive, stopNote],
   )
+
+  // Global mouse up handler to reset state when mouse is released anywhere
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (mouseIsDown) {
+        setMouseIsDown(false)
+
+        // If sustain is not active, release all notes that were being pressed via mouse
+        if (!isSustainActive) {
+          // Convert Set to Array to avoid modification during iteration
+          const notesToRelease = Array.from(touchedNotes)
+
+          // Clear touched notes first
+          setTouchedNotes(new Set())
+
+          // Stop all notes that were being touched
+          notesToRelease.forEach(note => {
+            stopNote(note)
+            console.warn(`Global mouse up: releasing ${note}`)
+          })
+        } else {
+          // Just clear the touched notes without stopping them (sustain is on)
+          setTouchedNotes(new Set())
+        }
+      }
+    }
+
+    window.addEventListener('mouseup', handleGlobalMouseUp)
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp)
+    }
+  }, [mouseIsDown, touchedNotes, isSustainActive, stopNote])
 
   // MIDI keyboard hook - initialized with our note handlers and audio ready state
   const { isMidiConnected, midiDeviceName, initializeMidi } = useMidiKeyboard({
-    onNoteOn: note => handleKeyDown(note, 'midi'),
-    onNoteOff: note => handleKeyUp(note, 'midi'),
+    onNoteOn: note => {
+      setTouchedNotes(prev => {
+        const newSet = new Set(prev)
+        newSet.add(note)
+        return newSet
+      })
+      playNote(note)
+      console.warn(`MIDI note on: ${note}`)
+    },
+    onNoteOff: note => {
+      setTouchedNotes(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(note)
+        return newSet
+      })
+      if (!isSustainActive) {
+        stopNote(note)
+        console.warn(`MIDI note off: ${note}`)
+      }
+    },
     onSustainChange: isActive => setSustain(isActive),
     isAudioReady: isAudioReady,
   })
@@ -216,10 +318,11 @@ const FooterPiano = () => {
             <WhiteKey
               key={key.note}
               $width={whiteKeyWidth}
-              $active={activeNotes.includes(key.note)}
+              $active={isNoteActive(key.note)}
               onMouseDown={() => handleMouseDown(key.note)}
               onMouseUp={() => handleMouseUp(key.note)}
-              onMouseLeave={() => handleMouseUp(key.note)}
+              onMouseEnter={() => handleMouseEnter(key.note)}
+              onMouseLeave={() => handleMouseLeave(key.note)}
               onTouchStart={() => handleTouchStart(key.note)}
               onTouchEnd={() => handleTouchEnd(key.note)}
             >
@@ -241,10 +344,11 @@ const FooterPiano = () => {
               $position={
                 calculateBlackKeyPosition(key.note, whiteKeys, whiteKeyWidth) - blackKeyWidth / 2
               }
-              $active={activeNotes.includes(key.note)}
+              $active={isNoteActive(key.note)}
               onMouseDown={() => handleMouseDown(key.note)}
               onMouseUp={() => handleMouseUp(key.note)}
-              onMouseLeave={() => handleMouseUp(key.note)}
+              onMouseEnter={() => handleMouseEnter(key.note)}
+              onMouseLeave={() => handleMouseLeave(key.note)}
               onTouchStart={() => handleTouchStart(key.note)}
               onTouchEnd={() => handleTouchEnd(key.note)}
             >
