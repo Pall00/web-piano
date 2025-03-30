@@ -27,24 +27,33 @@ const NotationDisplay = ({ note, clef = 'treble', width = 200, height = 150 }) =
       stave.addClef(clef)
       stave.setContext(context).draw()
 
-      // Parse the note
-      const [noteName, octave] = parseNote(note)
+      // Handle single note or array of notes for chords
+      const noteKeys = Array.isArray(note) ? note : [note]
+
+      // Parse the notes
+      const parsedKeys = noteKeys.map(n => {
+        const [noteName, octave] = parseNote(n)
+        return `${noteName}/${octave}`
+      })
 
       // Create the note
       const notes = [
         new VF.StaveNote({
           clef: clef,
-          keys: [`${noteName}/${octave}`],
+          keys: parsedKeys,
           duration: 'q',
         }),
       ]
 
-      // Add accidental if needed
-      if (noteName.includes('#')) {
-        notes[0].addAccidental(0, new VF.Accidental('#'))
-      } else if (noteName.includes('b')) {
-        notes[0].addAccidental(0, new VF.Accidental('b'))
-      }
+      // Add accidentals if needed
+      parsedKeys.forEach((key, i) => {
+        const noteName = key.split('/')[0]
+        if (noteName.includes('#')) {
+          notes[0].addAccidental(i, new VF.Accidental('#'))
+        } else if (noteName.includes('b')) {
+          notes[0].addAccidental(i, new VF.Accidental('b'))
+        }
+      })
 
       // Create a voice and add notes
       const voice = new VF.Voice({ num_beats: 1, beat_value: 4 })

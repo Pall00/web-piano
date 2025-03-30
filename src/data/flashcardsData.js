@@ -147,4 +147,47 @@ export const initialFlashcardSets = [
       },
     ],
   },
+  {
+    id: 'chord-reading',
+    name: 'Chord Reading',
+    description: 'Practice reading basic chords on the staff',
+    difficulty: 'intermediate',
+    cards: [
+      {
+        id: 'chord-notation-1',
+        type: 'notation',
+        question: 'What chord is this?',
+        notation: ['C4', 'E4', 'G4'],
+        answer: 'C Major',
+      },
+      {
+        id: 'chord-notation-2',
+        type: 'notation',
+        question: 'What chord is this?',
+        notation: ['G4', 'B4', 'D5'],
+        answer: 'G Major',
+      },
+      {
+        id: 'chord-notation-3',
+        type: 'notation',
+        question: 'What chord is this?',
+        notation: ['D4', 'F4', 'A4'],
+        answer: 'D Minor',
+      },
+      {
+        id: 'chord-notation-4',
+        type: 'notation',
+        question: 'What chord is this?',
+        notation: ['A4', 'C5', 'E5'],
+        answer: 'A Minor',
+      },
+      {
+        id: 'chord-notation-5',
+        type: 'notation',
+        question: 'What chord is this?',
+        notation: ['F4', 'A4', 'C5'],
+        answer: 'F Major',
+      },
+    ],
+  },
 ]
