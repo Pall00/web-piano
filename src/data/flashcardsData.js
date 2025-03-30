@@ -104,4 +104,47 @@ export const initialFlashcardSets = [
       },
     ],
   },
+  {
+    id: 'note-reading',
+    name: 'Note Reading',
+    description: 'Practice reading notes on the staff',
+    difficulty: 'beginner',
+    cards: [
+      {
+        id: 'staff-note-1',
+        type: 'notation',
+        question: 'What note is this?',
+        notation: 'C4',
+        answer: 'C4 (Middle C)',
+      },
+      {
+        id: 'staff-note-2',
+        type: 'notation',
+        question: 'What note is this?',
+        notation: 'E4',
+        answer: 'E4',
+      },
+      {
+        id: 'staff-note-3',
+        type: 'notation',
+        question: 'What note is this?',
+        notation: 'G4',
+        answer: 'G4',
+      },
+      {
+        id: 'staff-note-4',
+        type: 'notation',
+        question: 'What note is this?',
+        notation: 'B4',
+        answer: 'B4',
+      },
+      {
+        id: 'staff-note-5',
+        type: 'notation',
+        question: 'What note is this?',
+        notation: 'F#4',
+        answer: 'F#4 (F sharp 4)',
+      },
+    ],
+  },
 ]

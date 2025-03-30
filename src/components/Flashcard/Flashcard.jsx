@@ -9,6 +9,7 @@ import {
   CardTitle,
   CardContent,
 } from './Flashcard.styles'
+import NotationDisplay from '../NotationDisplay'
 
 const Flashcard = ({ card }) => {
   const [isFlipped, setIsFlipped] = useState(false)
@@ -29,6 +30,9 @@ const Flashcard = ({ card }) => {
     },
   }
 
+  // Check if the card has notation data
+  const hasNotation = card.type === 'notation' && card.notation
+
   return (
     <FlashcardContainer onClick={handleFlip}>
       <motion.div
@@ -39,7 +43,16 @@ const Flashcard = ({ card }) => {
       >
         <QuestionSide as={CardFace}>
           <CardTitle>Question</CardTitle>
-          <CardContent>{card.question}</CardContent>
+          <CardContent>
+            {hasNotation ? (
+              <>
+                <p>{card.question}</p>
+                <NotationDisplay note={card.notation} />
+              </>
+            ) : (
+              card.question
+            )}
+          </CardContent>
         </QuestionSide>
         <AnswerSide as={CardFace}>
           <CardTitle>Answer</CardTitle>
