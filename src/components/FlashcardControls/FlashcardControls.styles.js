@@ -28,7 +28,7 @@ export const NavButton = styled.button`
   }
 
   /* Different styles for prev/next buttons */
-  ${({ $direction, theme }) =>
+  ${({ $direction }) =>
     $direction === 'prev'
       ? `
       border-top-right-radius: 0;
