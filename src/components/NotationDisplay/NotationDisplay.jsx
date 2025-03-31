@@ -35,19 +35,19 @@ const midiNoteToNoteName = midiNote => {
     // If too low, transpose up to a playable range
     const octavesUp = Math.ceil(1 - octave)
     octave += octavesUp
-    console.log(`Note too low, transposing up ${octavesUp} octaves`)
+    console.warn(`Note too low, transposing up ${octavesUp} octaves`)
   } else if (octave > 7) {
     // If too high, transpose down to a playable range
     const octavesDown = Math.ceil(octave - 7)
     octave -= octavesDown
-    console.log(`Note too high, transposing down ${octavesDown} octaves`)
+    console.warn(`Note too high, transposing down ${octavesDown} octaves`)
   }
 
   // Calculate note name index (0-11)
   const noteIndex = midiNote % 12
 
   const noteName = noteNames[noteIndex] + octave
-  console.log(`Converted MIDI note ${midiNote} to ${noteName}`)
+  console.warn(`Converted MIDI note ${midiNote} to ${noteName}`)
 
   return noteName
 }
@@ -184,7 +184,7 @@ const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initial
   const extractNotesInfo = notesUnderCursor => {
     try {
       // Log the raw notes
-      console.log(
+      console.warn(
         'Raw notes under cursor:',
         notesUnderCursor.map(n => {
           return {
@@ -229,7 +229,7 @@ const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initial
         })
         .filter(Boolean) // Remove any nulls from the array
 
-      console.log('Extracted notes info:', notes)
+      console.warn('Extracted notes info:', notes)
       return notes
     } catch (err) {
       console.error('Error processing notes:', err)

@@ -1,5 +1,5 @@
 // src/pages/Notation/Notation.jsx
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import NotationDisplay from '../../components/NotationDisplay'
 import ScoreSelector from '../../components/NotationDisplay/ScoreSelector'

@@ -13,7 +13,8 @@ const standardizeNoteForTone = note => {
       return null
     }
 
-    const [_, noteLetter, accidental, octave] = match
+    // Destructure without unused variable
+    const [, noteLetter, accidental, octave] = match
 
     // Standardize the note letter to uppercase
     const standardizedNoteLetter = noteLetter.toUpperCase()
@@ -158,7 +159,7 @@ const usePianoAudio = () => {
           }
 
           // Play the note
-          console.log(`Playing standardized note: ${standardizedNote}`)
+          console.warn(`Playing standardized note: ${standardizedNote}`)
           sampler.triggerAttack(standardizedNote)
         } catch (err) {
           console.error(`Error playing note ${note}:`, err)

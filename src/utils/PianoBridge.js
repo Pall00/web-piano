@@ -27,7 +27,7 @@ const normalizeNoteName = noteName => {
       return noteName
     }
 
-    let [_, notePart, octavePart] = match
+    let [, notePart, octavePart] = match
 
     // Standardize the note part (C, C#, Db, etc.)
     notePart = notePart.charAt(0).toUpperCase() + notePart.slice(1)
@@ -81,7 +81,7 @@ const normalizeNoteName = noteName => {
 
     // Combine note and octave
     const normalizedNote = notePart + octavePart
-    console.log(`Normalized note: ${noteName} -> ${normalizedNote}`)
+    console.warn(`Normalized note: ${noteName} -> ${normalizedNote}`)
     return normalizedNote
   } catch (error) {
     console.error('Error normalizing note name:', error)
@@ -130,7 +130,7 @@ export const playNote = noteName => {
     // Normalize the note name to the format expected by the piano
     const normalizedNote = normalizeNoteName(noteName)
 
-    console.log(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
+    console.warn(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
 
     // Play the note using the piano instance
     pianoInstance.playNote(normalizedNote)

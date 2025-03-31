@@ -230,7 +230,8 @@ const FooterPiano = () => {
         try {
           // Don't need to replace '#' with 's' anymore, that's handled in PianoBridge
           // Just use the note as-is
-          console.log(`Piano playing note: ${noteId}`)
+          console.warn(`Piano playing note: ${noteId}`)
+
           playNote(noteId)
         } catch (err) {
           console.error(`Error playing note ${noteId}:`, err)
