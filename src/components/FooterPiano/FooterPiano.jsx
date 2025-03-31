@@ -221,31 +221,44 @@ const FooterPiano = () => {
   useEffect(() => {
     // Register this piano instance with the bridge
     setPianoInstance({
+      // Flag to indicate if this piano uses 's' for sharps instead of '#'
+      useSharpS: true, // Set to true if your piano uses 's' instead of '#' for sharps
+
       playNote: noteId => {
-        // Convert noteId (e.g., "C4") to your internal format if needed
-        // Then play the note
-        const formattedNote = noteId.replace('#', 's') // Handle sharps if your system uses 's' instead of '#'
-        playNote(formattedNote)
+        if (!noteId) return
+
+        try {
+          // Don't need to replace '#' with 's' anymore, that's handled in PianoBridge
+          // Just use the note as-is
+          console.log(`Piano playing note: ${noteId}`)
+          playNote(noteId)
+        } catch (err) {
+          console.error(`Error playing note ${noteId}:`, err)
+        }
       },
+
       highlightNote: noteId => {
-        // Convert noteId to your internal format if needed
-        const formattedNote = noteId.replace('#', 's')
+        if (!noteId) return
 
-        // Add note to touched notes to highlight it (without playing)
-        setTouchedNotes(prev => {
-          const newSet = new Set(prev)
-          newSet.add(formattedNote)
-          return newSet
-        })
-
-        // Remove highlight after a short delay
-        setTimeout(() => {
+        try {
+          // Add note to touched notes to highlight it (without playing)
           setTouchedNotes(prev => {
             const newSet = new Set(prev)
-            newSet.delete(formattedNote)
+            newSet.add(noteId)
             return newSet
           })
-        }, 500)
+
+          // Remove highlight after a short delay
+          setTimeout(() => {
+            setTouchedNotes(prev => {
+              const newSet = new Set(prev)
+              newSet.delete(noteId)
+              return newSet
+            })
+          }, 500)
+        } catch (err) {
+          console.error(`Error highlighting note ${noteId}:`, err)
+        }
       },
     })
 
@@ -253,7 +266,7 @@ const FooterPiano = () => {
     return () => {
       setPianoInstance(null)
     }
-  }, [playNote]) // Add playNote as a dependency since it's used in the effect
+  }, [playNote]) // Add playNote as a dependency
 
   // Check if connected to a Port-1 device
   const isPort1Device =

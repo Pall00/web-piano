@@ -1,5 +1,5 @@
 // src/pages/Notation/Notation.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import NotationDisplay from '../../components/NotationDisplay'
 import ScoreSelector from '../../components/NotationDisplay/ScoreSelector'
@@ -17,12 +17,25 @@ const Notation = () => {
   const handleNoteSelected = notes => {
     setCurrentNotes(notes)
 
-    // If your FooterPiano component can play notes, you could trigger it here
-    // For example:
-    if (notes.length > 0 && window.playPianoNote) {
-      notes.forEach(note => {
-        window.playPianoNote(note.name)
-      })
+    // If there are notes to play and the piano bridge is available
+    if (notes.length > 0) {
+      // If it's a chord (multiple notes)
+      if (notes.length > 1) {
+        // Play as a chord if we have the function available
+        if (window.playPianoChord) {
+          window.playPianoChord(notes.map(note => note.name))
+        } else if (window.playPianoNote) {
+          // Otherwise play notes individually with a tiny delay
+          notes.forEach((note, index) => {
+            setTimeout(() => {
+              window.playPianoNote(note.name)
+            }, index * 20) // 20ms delay between notes
+          })
+        }
+      } else if (window.playPianoNote) {
+        // Single note
+        window.playPianoNote(notes[0].name)
+      }
     }
   }
 
@@ -56,7 +69,8 @@ const Notation = () => {
               <ul>
                 {currentNotes.map((note, index) => (
                   <li key={index}>
-                    {note.name} - Duration: {note.duration}
+                    {note.name} {note.midiNote ? `(MIDI: ${note.midiNote})` : ''}
+                    {note.duration ? ` - Duration: ${note.duration}` : ''}
                   </li>
                 ))}
               </ul>

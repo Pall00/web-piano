@@ -12,6 +12,46 @@ import {
   ZoomLevel,
 } from './NotationDisplay.styles'
 
+/**
+ * Converts a MIDI note number to a standard notation note name
+ * @param {number} midiNote - MIDI note number (0-127)
+ * @returns {string} Note name in standard notation (e.g., "C4", "F#5")
+ */
+const midiNoteToNoteName = midiNote => {
+  if (midiNote === undefined || midiNote === null) {
+    console.warn('Invalid MIDI note number')
+    return 'C4' // Default to middle C
+  }
+
+  // Note names with sharps
+  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+  // The standard formula to convert MIDI to octave
+  // MIDI 60 = C4 (Middle C)
+  let octave = Math.floor(midiNote / 12) - 1
+
+  // Adjust octave for playability if needed
+  if (octave < 1) {
+    // If too low, transpose up to a playable range
+    const octavesUp = Math.ceil(1 - octave)
+    octave += octavesUp
+    console.log(`Note too low, transposing up ${octavesUp} octaves`)
+  } else if (octave > 7) {
+    // If too high, transpose down to a playable range
+    const octavesDown = Math.ceil(octave - 7)
+    octave -= octavesDown
+    console.log(`Note too high, transposing down ${octavesDown} octaves`)
+  }
+
+  // Calculate note name index (0-11)
+  const noteIndex = midiNote % 12
+
+  const noteName = noteNames[noteIndex] + octave
+  console.log(`Converted MIDI note ${midiNote} to ${noteName}`)
+
+  return noteName
+}
+
 const defaultOptions = {
   autoResize: true,
   drawTitle: true,
@@ -28,7 +68,7 @@ const defaultOptions = {
 
 // Default MusicXML to show if none provided
 const DEFAULT_SCORE_URL =
-  'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml'
+  'https://opensheetmusicdisplay.github.io/demo/sheets/MuzioClementi_SonatinaOpus36No1_Part1.xml'
 
 const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initialZoom = 1.0 }) => {
   const osmdContainerRef = useRef(null)
@@ -140,62 +180,106 @@ const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initial
     setZoom(prevZoom => Math.max(prevZoom / 1.2, 0.5))
   }
 
+  // Function to safely extract note information with proper error handling
+  const extractNotesInfo = notesUnderCursor => {
+    try {
+      // Log the raw notes
+      console.log(
+        'Raw notes under cursor:',
+        notesUnderCursor.map(n => {
+          return {
+            fundamentalNote: n.Pitch?.fundamentalNote,
+            octave: n.Pitch?.octave,
+            halfTone: n.Pitch?.halfTone,
+            pitch: n.Pitch,
+          }
+        }),
+      )
+
+      const notes = notesUnderCursor
+        .map(note => {
+          // First check if note and note.Pitch exist
+          if (!note || !note.Pitch) {
+            return null
+          }
+
+          try {
+            // Use the MIDI note number (halfTone) to get the accurate note name
+            const midiNoteNumber = note.Pitch.halfTone
+            if (midiNoteNumber === undefined) {
+              console.warn('Note missing MIDI note number (halfTone)')
+              return null
+            }
+
+            // Convert MIDI note to standard notation
+            const noteName = midiNoteToNoteName(midiNoteNumber)
+
+            // Use safe access for duration
+            const duration = note.Length?.realValue || 0
+
+            return {
+              name: noteName,
+              duration: duration,
+              midiNote: midiNoteNumber,
+            }
+          } catch (err) {
+            console.warn('Error extracting note details:', err)
+            return null
+          }
+        })
+        .filter(Boolean) // Remove any nulls from the array
+
+      console.log('Extracted notes info:', notes)
+      return notes
+    } catch (err) {
+      console.error('Error processing notes:', err)
+      return []
+    }
+  }
+
   const handleNextNote = () => {
-    if (osmdRef.current?.cursor && isLoaded) {
+    if (!osmdRef.current?.cursor || !isLoaded) return
+
+    try {
       osmdRef.current.cursor.next()
       const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
 
-      if (notesUnderCursor.length > 0 && onNoteSelected) {
-        // Extract pitch information
-        const notes = notesUnderCursor
-          .map(note => {
-            const pitch = note.Pitch
-            if (pitch) {
-              return {
-                // Format as C4, D#3, etc.
-                name: `${pitch.Fundamental.toString().replace(',', '')}${pitch.Octave}`,
-                // Can include more information if needed
-                duration: note.Length.realValue,
-              }
-            }
-            return null
-          })
-          .filter(Boolean)
-
-        onNoteSelected(notes)
+      if (notesUnderCursor?.length > 0 && onNoteSelected) {
+        const notes = extractNotesInfo(notesUnderCursor)
+        if (notes.length > 0) {
+          onNoteSelected(notes)
+        }
       }
+    } catch (err) {
+      console.error('Error navigating to next note:', err)
     }
   }
 
   const handlePrevNote = () => {
-    if (osmdRef.current?.cursor && isLoaded) {
-      osmdRef.current.cursor.previous()
+    if (!osmdRef.current?.cursor || !isLoaded) return
 
+    try {
+      osmdRef.current.cursor.previous()
       const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
 
-      if (notesUnderCursor.length > 0 && onNoteSelected) {
-        // Same note extraction logic as in handleNextNote
-        const notes = notesUnderCursor
-          .map(note => {
-            const pitch = note.Pitch
-            if (pitch) {
-              return {
-                name: `${pitch.Fundamental.toString().replace(',', '')}${pitch.Octave}`,
-                duration: note.Length.realValue,
-              }
-            }
-            return null
-          })
-          .filter(Boolean)
-
-        onNoteSelected(notes)
+      if (notesUnderCursor?.length > 0 && onNoteSelected) {
+        const notes = extractNotesInfo(notesUnderCursor)
+        if (notes.length > 0) {
+          onNoteSelected(notes)
+        }
       }
+    } catch (err) {
+      console.error('Error navigating to previous note:', err)
     }
   }
 
   const handleResetCursor = () => {
     if (osmdRef.current?.cursor && isLoaded) {
-      osmdRef.current.cursor.reset()
+      try {
+        osmdRef.current.cursor.reset()
+      } catch (err) {
+        console.error('Error resetting cursor:', err)
+      }
     }
   }
 

@@ -1,6 +1,63 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import * as Tone from 'tone'
 
+// Helper function to standardize note format for Tone.js
+const standardizeNoteForTone = note => {
+  if (!note) return null
+
+  try {
+    // Extract note and octave
+    const match = note.match(/^([A-Ga-g])([#sb♯♭]?)(\d+)$/)
+    if (!match) {
+      console.warn(`Invalid note format: ${note}`)
+      return null
+    }
+
+    const [_, noteLetter, accidental, octave] = match
+
+    // Standardize the note letter to uppercase
+    const standardizedNoteLetter = noteLetter.toUpperCase()
+
+    // Convert 's' to '#' for Tone.js
+    let standardizedAccidental = accidental
+    if (accidental === 's') {
+      standardizedAccidental = '#'
+    } else if (accidental === 'b' || accidental === '♭') {
+      standardizedAccidental = 'b'
+    }
+
+    // Build the standardized note
+    const standardizedNote = `${standardizedNoteLetter}${standardizedAccidental}${octave}`
+
+    return standardizedNote
+  } catch (err) {
+    console.warn(`Error standardizing note: ${note}`, err)
+    return null
+  }
+}
+
+// Function to check if a note is within the playable range
+const isNoteInRange = note => {
+  // Define the range of your piano
+  const MIN_NOTE = 21 // A0
+  const MAX_NOTE = 108 // C8
+
+  try {
+    // Convert note to MIDI number
+    const standardizedNote = standardizeNoteForTone(note)
+    if (!standardizedNote) return false
+
+    // Use Tone.js Frequency to convert to MIDI
+    const midiNote = Tone.Frequency(standardizedNote).toMidi()
+
+    // Check if within range
+    return midiNote >= MIN_NOTE && midiNote <= MAX_NOTE
+  } catch (err) {
+    console.warn(`Error checking note range: ${note}`, err)
+    return false
+  }
+}
+
 const usePianoAudio = () => {
   const [isAudioStarted, setIsAudioStarted] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -82,14 +139,30 @@ const usePianoAudio = () => {
   const playNote = useCallback(
     note => {
       if (sampler && isAudioStarted && isLoaded) {
-        // If the note was in the sustained notes list, remove it
-        // (because we're playing it again)
-        if (sustainedNotesRef.current.has(note)) {
-          sustainedNotesRef.current.delete(note)
-        }
+        try {
+          // If the note was in the sustained notes list, remove it
+          // (because we're playing it again)
+          if (sustainedNotesRef.current.has(note)) {
+            sustainedNotesRef.current.delete(note)
+          }
 
-        // Play the note
-        sampler.triggerAttack(note)
+          // Standardize the note format for Tone.js
+          const standardizedNote = standardizeNoteForTone(note)
+
+          // Check if note is in playable range
+          if (!standardizedNote || !isNoteInRange(standardizedNote)) {
+            console.warn(
+              `Note ${note} (standardized: ${standardizedNote}) is out of playable range or invalid`,
+            )
+            return
+          }
+
+          // Play the note
+          console.log(`Playing standardized note: ${standardizedNote}`)
+          sampler.triggerAttack(standardizedNote)
+        } catch (err) {
+          console.error(`Error playing note ${note}:`, err)
+        }
       }
     },
     [sampler, isAudioStarted, isLoaded],
@@ -100,15 +173,25 @@ const usePianoAudio = () => {
     note => {
       if (!sampler || !isAudioStarted || !isLoaded) return
 
-      // Check if sustain is active using the ref for immediate access
-      if (sustainActiveRef.current) {
-        // If sustain is active, add the note to the sustained notes list
-        console.warn(`Sustaining note: ${note}`)
-        sustainedNotesRef.current.add(note)
-      } else {
-        // If sustain is not active, release the note immediately
-        console.warn(`Releasing note: ${note}`)
-        sampler.triggerRelease(note)
+      try {
+        // Check if sustain is active using the ref for immediate access
+        if (sustainActiveRef.current) {
+          // If sustain is active, add the note to the sustained notes list
+          console.warn(`Sustaining note: ${note}`)
+          sustainedNotesRef.current.add(note)
+        } else {
+          // If sustain is not active, release the note immediately
+          console.warn(`Releasing note: ${note}`)
+
+          // Standardize the note format for Tone.js
+          const standardizedNote = standardizeNoteForTone(note)
+
+          if (standardizedNote) {
+            sampler.triggerRelease(standardizedNote)
+          }
+        }
+      } catch (err) {
+        console.error(`Error stopping note ${note}:`, err)
       }
     },
     [sampler, isAudioStarted, isLoaded],
@@ -126,14 +209,25 @@ const usePianoAudio = () => {
       // When releasing the sustain pedal, release all sustained notes
       if (!isActive && sustainedNotesRef.current.size > 0) {
         if (sampler && isAudioStarted && isLoaded) {
-          const notesToRelease = Array.from(sustainedNotesRef.current)
-          console.warn('Releasing sustained notes:', notesToRelease)
+          try {
+            const notesToRelease = Array.from(sustainedNotesRef.current)
+              .map(standardizeNoteForTone)
+              .filter(Boolean)
 
-          // Release all sustained notes using Tone.js
-          sampler.triggerRelease(notesToRelease)
+            if (notesToRelease.length > 0) {
+              console.warn('Releasing sustained notes:', notesToRelease)
 
-          // Clear the sustained notes set
-          sustainedNotesRef.current.clear()
+              // Release all sustained notes using Tone.js
+              sampler.triggerRelease(notesToRelease)
+
+              // Clear the sustained notes set
+              sustainedNotesRef.current.clear()
+            }
+          } catch (err) {
+            console.error('Error releasing sustained notes:', err)
+            // Clear the sustained notes set anyway to avoid lingering notes
+            sustainedNotesRef.current.clear()
+          }
         }
       }
     },
