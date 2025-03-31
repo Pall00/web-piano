@@ -1,5 +1,4 @@
 // src/components/FooterPiano/FooterPiano.jsx
-
 import { useRef, useState, useEffect, useCallback } from 'react'
 import {
   PianoContainer,
@@ -20,6 +19,7 @@ import {
 import { generatePianoKeys, calculateBlackKeyPosition } from './utils/pianoUtils'
 import usePianoAudio from './hooks/usePianoAudio'
 import useMidiKeyboard from './hooks/useMidiKeyboard'
+import { setPianoInstance } from '../../utils/PianoBridge'
 
 const FooterPiano = () => {
   // Piano keys data
@@ -216,6 +216,44 @@ const FooterPiano = () => {
     onSustainChange: isActive => setSustain(isActive),
     isAudioReady: isAudioReady,
   })
+
+  // Register the piano with the PianoBridge utility for external control
+  useEffect(() => {
+    // Register this piano instance with the bridge
+    setPianoInstance({
+      playNote: noteId => {
+        // Convert noteId (e.g., "C4") to your internal format if needed
+        // Then play the note
+        const formattedNote = noteId.replace('#', 's') // Handle sharps if your system uses 's' instead of '#'
+        playNote(formattedNote)
+      },
+      highlightNote: noteId => {
+        // Convert noteId to your internal format if needed
+        const formattedNote = noteId.replace('#', 's')
+
+        // Add note to touched notes to highlight it (without playing)
+        setTouchedNotes(prev => {
+          const newSet = new Set(prev)
+          newSet.add(formattedNote)
+          return newSet
+        })
+
+        // Remove highlight after a short delay
+        setTimeout(() => {
+          setTouchedNotes(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(formattedNote)
+            return newSet
+          })
+        }, 500)
+      },
+    })
+
+    // Clean up when component unmounts
+    return () => {
+      setPianoInstance(null)
+    }
+  }, [playNote]) // Add playNote as a dependency since it's used in the effect
 
   // Check if connected to a Port-1 device
   const isPort1Device =

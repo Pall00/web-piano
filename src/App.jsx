@@ -7,6 +7,7 @@ import GlobalStyles from './styles/GlobalStyles'
 import FooterPiano from './components/FooterPiano'
 import Home from './pages/Home'
 import Flashcards from './pages/Flashcards'
+import Notation from './pages/Notation'
 
 function App() {
   return (
@@ -26,7 +27,7 @@ function App() {
                   </FlashcardProvider>
                 }
               />
-              <Route path="/notation" element={<div className="content-page">Notation Page</div>} />
+              <Route path="/notation" element={<Notation />} />
               <Route
                 path="/chord-trainer"
                 element={<div className="content-page">Chord Trainer Page</div>}

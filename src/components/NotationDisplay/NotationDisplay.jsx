@@ -1,83 +1,237 @@
 // src/components/NotationDisplay/NotationDisplay.jsx
-import { useRef, useEffect } from 'react'
-import Vex from 'vexflow'
-import { NotationContainer } from './NotationDisplay.styles'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
+import {
+  NotationDisplayContainer,
+  NotationCanvas,
+  ControlsContainer,
+  ZoomControls,
+  CursorControls,
+  Button,
+  NavigationButton,
+  ZoomLevel,
+} from './NotationDisplay.styles'
 
-const NotationDisplay = ({ note, clef = 'treble', width = 200, height = 150 }) => {
-  const containerRef = useRef(null)
+const defaultOptions = {
+  autoResize: true,
+  drawTitle: true,
+  drawCredits: false,
+  drawSubtitle: false,
+  followCursor: true,
+  disableCursor: false,
+  drawMeasureNumbers: true,
+  drawTimeSignatures: true,
+  drawFingerings: true,
+  // Set a neutral backend that will work in all browsers
+  backend: 'svg',
+}
 
+// Default MusicXML to show if none provided
+const DEFAULT_SCORE_URL =
+  'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml'
+
+const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initialZoom = 1.0 }) => {
+  const osmdContainerRef = useRef(null)
+  const osmdRef = useRef(null)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [zoom, setZoom] = useState(initialZoom)
+  const [error, setError] = useState(null)
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // Memoize the loadScore function to use in multiple effects
+  const loadScore = useCallback(
+    async url => {
+      if (!osmdRef.current || !url) return
+
+      setIsLoaded(false)
+      setError(null)
+
+      try {
+        await osmdRef.current.load(url)
+
+        // IMPORTANT: Only set zoom and render after successful load
+        osmdRef.current.zoom = zoom
+
+        // Check if we can render before trying
+        if (osmdRef.current.IsReadyToRender()) {
+          osmdRef.current.render()
+
+          // Initialize cursor only after successful render
+          if (!osmdRef.current.cursor) {
+            osmdRef.current.enableOrDisableCursors(true)
+          }
+
+          // Show cursor
+          if (osmdRef.current.cursor) {
+            osmdRef.current.cursor.show()
+          }
+
+          setIsLoaded(true)
+        } else {
+          setError('Score loaded but not ready to render')
+        }
+      } catch (err) {
+        console.error('Error loading score:', err)
+        setError('Failed to load sheet music')
+      }
+    },
+    [zoom],
+  )
+
+  // Initialize OSMD
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!osmdContainerRef.current) return
 
-    // Clear previous rendering
-    containerRef.current.innerHTML = ''
+    // Store the current container reference to use in cleanup
+    const container = osmdContainerRef.current
+
+    // Clear any existing content
+    while (container.firstChild) {
+      container.removeChild(container.firstChild)
+    }
 
     try {
-      // Create VexFlow renderer
-      const VF = Vex.Flow
-      const renderer = new VF.Renderer(containerRef.current, VF.Renderer.Backends.SVG)
+      // Create new OSMD instance
+      const osmd = new OpenSheetMusicDisplay(container, defaultOptions)
+      osmd.setLogLevel('warn')
+      osmdRef.current = osmd
+      setIsInitialized(true)
+    } catch (err) {
+      console.error('Error initializing OSMD:', err)
+      setError('Failed to initialize sheet music display')
+    }
 
-      // Configure renderer
-      renderer.resize(width, height)
-      const context = renderer.getContext()
-      context.setFont('Arial', 10)
-
-      // Create stave
-      const stave = new VF.Stave(10, 40, width - 20)
-      stave.addClef(clef)
-      stave.setContext(context).draw()
-
-      // Handle single note or array of notes for chords
-      const noteKeys = Array.isArray(note) ? note : [note]
-
-      // Parse the notes
-      const parsedKeys = noteKeys.map(n => {
-        const [noteName, octave] = parseNote(n)
-        return `${noteName}/${octave}`
-      })
-
-      // Create the note
-      const notes = [
-        new VF.StaveNote({
-          clef: clef,
-          keys: parsedKeys,
-          duration: 'q',
-        }),
-      ]
-
-      // Add accidentals if needed
-      parsedKeys.forEach((key, i) => {
-        const noteName = key.split('/')[0]
-        if (noteName.includes('#')) {
-          notes[0].addAccidental(i, new VF.Accidental('#'))
-        } else if (noteName.includes('b')) {
-          notes[0].addAccidental(i, new VF.Accidental('b'))
+    return () => {
+      // Clean up OSMD instance
+      if (osmdRef.current) {
+        // OSMD doesn't have a built-in dispose method, but we can at least
+        // remove its elements from the DOM
+        if (container) {
+          while (container.firstChild) {
+            container.removeChild(container.firstChild)
+          }
         }
-      })
-
-      // Create a voice and add notes
-      const voice = new VF.Voice({ num_beats: 1, beat_value: 4 })
-      voice.addTickables(notes)
-
-      // Format and draw
-      new VF.Formatter().joinVoices([voice]).format([voice], width - 50)
-      voice.draw(context, stave)
-    } catch (error) {
-      console.error('Error rendering notation:', error)
+        osmdRef.current = null
+      }
+      setIsInitialized(false)
     }
-  }, [note, clef, width, height])
+  }, []) // This effect should only run once on mount
 
-  // Helper function to parse note string (e.g., "C4" -> ["C", 4])
-  const parseNote = noteStr => {
-    const match = noteStr.match(/^([A-Ga-g][#b]?)(\d)$/)
-    if (!match) {
-      console.error(`Invalid note format: ${noteStr}`)
-      return ['C', 4] // Default to middle C if format is invalid
+  // Load score when initialized and URL is available
+  useEffect(() => {
+    if (isInitialized && osmdRef.current && scoreUrl) {
+      loadScore(scoreUrl)
     }
-    return [match[1], match[2]]
+  }, [scoreUrl, loadScore, isInitialized])
+
+  // Apply zoom when it changes
+  useEffect(() => {
+    if (osmdRef.current && isLoaded) {
+      osmdRef.current.Zoom = zoom
+      osmdRef.current.render()
+    }
+  }, [zoom, isLoaded])
+
+  const handleZoomIn = () => {
+    setZoom(prevZoom => Math.min(prevZoom * 1.2, 3.0))
   }
 
-  return <NotationContainer ref={containerRef} />
+  const handleZoomOut = () => {
+    setZoom(prevZoom => Math.max(prevZoom / 1.2, 0.5))
+  }
+
+  const handleNextNote = () => {
+    if (osmdRef.current?.cursor && isLoaded) {
+      osmdRef.current.cursor.next()
+      const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
+
+      if (notesUnderCursor.length > 0 && onNoteSelected) {
+        // Extract pitch information
+        const notes = notesUnderCursor
+          .map(note => {
+            const pitch = note.Pitch
+            if (pitch) {
+              return {
+                // Format as C4, D#3, etc.
+                name: `${pitch.Fundamental.toString().replace(',', '')}${pitch.Octave}`,
+                // Can include more information if needed
+                duration: note.Length.realValue,
+              }
+            }
+            return null
+          })
+          .filter(Boolean)
+
+        onNoteSelected(notes)
+      }
+    }
+  }
+
+  const handlePrevNote = () => {
+    if (osmdRef.current?.cursor && isLoaded) {
+      osmdRef.current.cursor.previous()
+
+      const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
+
+      if (notesUnderCursor.length > 0 && onNoteSelected) {
+        // Same note extraction logic as in handleNextNote
+        const notes = notesUnderCursor
+          .map(note => {
+            const pitch = note.Pitch
+            if (pitch) {
+              return {
+                name: `${pitch.Fundamental.toString().replace(',', '')}${pitch.Octave}`,
+                duration: note.Length.realValue,
+              }
+            }
+            return null
+          })
+          .filter(Boolean)
+
+        onNoteSelected(notes)
+      }
+    }
+  }
+
+  const handleResetCursor = () => {
+    if (osmdRef.current?.cursor && isLoaded) {
+      osmdRef.current.cursor.reset()
+    }
+  }
+
+  return (
+    <NotationDisplayContainer>
+      {error && <div className="error-message">{error}</div>}
+
+      {!isLoaded && !error && <div className="loading-message">Loading sheet music...</div>}
+
+      <ControlsContainer>
+        <ZoomControls>
+          <Button onClick={handleZoomOut}>
+            <span className="icon">-</span>
+          </Button>
+          <ZoomLevel>{Math.round(zoom * 100)}%</ZoomLevel>
+          <Button onClick={handleZoomIn}>
+            <span className="icon">+</span>
+          </Button>
+        </ZoomControls>
+
+        <CursorControls>
+          <NavigationButton onClick={handleResetCursor} disabled={!isLoaded}>
+            Reset
+          </NavigationButton>
+          <NavigationButton onClick={handlePrevNote} disabled={!isLoaded}>
+            Previous
+          </NavigationButton>
+          <NavigationButton onClick={handleNextNote} disabled={!isLoaded}>
+            Next
+          </NavigationButton>
+        </CursorControls>
+      </ControlsContainer>
+
+      <NotationCanvas ref={osmdContainerRef} />
+    </NotationDisplayContainer>
+  )
 }
 
 export default NotationDisplay
