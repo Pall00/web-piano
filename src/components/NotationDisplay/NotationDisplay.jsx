@@ -217,47 +217,87 @@ const NotationDisplay = ({
     if (onZoomOut) onZoomOut(newZoom)
   }
 
+  /**
+   * Converts a frequency in Hz to a note name
+   * @param {number} frequency - The frequency in Hz
+   * @returns {string} Note name in the format of letter, accidental, and octave (e.g., "C4", "F#5")
+   */
+  const frequencyToNoteName = frequency => {
+    try {
+      if (!frequency || frequency <= 0) {
+        console.warn('Invalid frequency:', frequency)
+        return null
+      }
+
+      // A4 = 440 Hz
+      const A4 = 440.0
+
+      // Calculate how many semitones away from A4
+      // Formula: 12 * log2(f / 440)
+      const semitoneOffset = 12 * Math.log2(frequency / A4)
+
+      // Round to the nearest semitone
+      const semitones = Math.round(semitoneOffset)
+
+      // Calculate MIDI note number (A4 is MIDI note 69)
+      const midiNote = 69 + semitones
+
+      // Convert MIDI note number to note name
+      return midiNoteToNoteName(midiNote)
+    } catch (err) {
+      console.error('Error converting frequency to note name:', err)
+      return null
+    }
+  }
+
   // Function to safely extract note information with proper error handling
   const extractNotesInfo = notesUnderCursor => {
     try {
-      // Log the raw notes
-      console.warn(
-        'Raw notes under cursor:',
-        notesUnderCursor.map(n => {
-          return {
-            fundamentalNote: n.Pitch?.fundamentalNote,
-            octave: n.Pitch?.octave,
-            halfTone: n.Pitch?.halfTone,
-            pitch: n.Pitch,
-          }
-        }),
-      )
+      if (notesUnderCursor.length > 0) {
+        console.warn('Processing notes under cursor:', notesUnderCursor.length)
+      }
 
       const notes = notesUnderCursor
         .map(note => {
-          // First check if note and note.Pitch exist
-          if (!note || !note.Pitch) {
-            return null
-          }
+          if (!note) return null
 
           try {
-            // Use the MIDI note number (halfTone) to get the accurate note name
-            const midiNoteNumber = note.Pitch.halfTone
-            if (midiNoteNumber === undefined) {
-              console.warn('Note missing MIDI note number (halfTone)')
+            // Check for TransposedPitch first (if sheet is transposed)
+            // Then fall back to regular Pitch
+            const pitchObj = note.TransposedPitch || note.Pitch
+
+            if (!pitchObj) {
+              console.warn('Note missing pitch information')
               return null
             }
 
-            // Convert MIDI note to standard notation
-            const noteName = midiNoteToNoteName(midiNoteNumber)
+            let noteName = null
+
+            // Try frequency first - most reliable method
+            if (pitchObj.frequency && pitchObj.frequency > 0) {
+              noteName = frequencyToNoteName(pitchObj.frequency)
+              console.warn(`Using frequency (${pitchObj.frequency} Hz) → ${noteName}`)
+            }
+
+            // If frequency conversion failed, try MIDI
+            if (!noteName && pitchObj.halfTone !== undefined) {
+              const midiNoteNumber = pitchObj.halfTone
+              noteName = midiNoteToNoteName(midiNoteNumber)
+              console.warn(`Using MIDI conversion (${midiNoteNumber}) → ${noteName}`)
+            }
 
             // Use safe access for duration
             const duration = note.Length?.realValue || 0
 
+            if (!noteName) {
+              console.warn('Could not determine note name')
+              return null
+            }
+
             return {
               name: noteName,
               duration: duration,
-              midiNote: midiNoteNumber,
+              midiNote: pitchObj.halfTone,
             }
           } catch (err) {
             console.warn('Error extracting note details:', err)
