@@ -5,10 +5,10 @@ export const NotationDisplayContainer = styled.div`
   display: flex;
   flex-direction: column;
   width: 100%;
-  padding: ${({ theme }) => theme.spacing(4)};
   background-color: ${({ theme }) => theme.colors.background.paper};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   box-shadow: ${({ theme }) => theme.shadows.small};
+  overflow: hidden;
 
   .error-message {
     color: ${({ theme }) => theme.colors.error};
@@ -16,20 +16,60 @@ export const NotationDisplayContainer = styled.div`
     text-align: center;
     font-size: 1.8rem;
   }
+
+  .loading-message {
+    padding: ${({ theme }) => theme.spacing(4)};
+    text-align: center;
+    font-size: 1.8rem;
+    color: ${({ theme }) => theme.colors.text.secondary};
+  }
+`
+
+// New wrapper for horizontal scrolling
+export const HorizontalScrollContainer = styled.div`
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: ${({ theme }) => theme.spacing(2)};
+
+  /* Add custom scrollbar styling */
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: ${({ theme }) => theme.colors.background.card};
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.colors.primary.main};
+    border-radius: 4px;
+
+    &:hover {
+      background: ${({ theme }) => theme.colors.primary.dark};
+    }
+  }
 `
 
 export const NotationCanvas = styled.div`
-  width: 100%;
+  min-width: fit-content;
   min-height: 300px;
-  margin-top: ${({ theme }) => theme.spacing(4)};
+  margin-top: ${({ theme }) => theme.spacing(2)};
+  margin-bottom: ${({ theme }) => theme.spacing(2)};
   background-color: ${({ theme }) => theme.colors.background.card};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.small};
-  overflow: auto;
 
-  /* Force osmd to not overflow the container */
+  /* Ensure OSMD content is properly displayed */
   & > div {
-    max-width: 100%;
+    min-width: fit-content;
+  }
+
+  /* Specific styles for OSMD SVG content */
+  & svg {
+    display: block;
+    max-width: none; /* Prevent SVG from being constrained by container width */
   }
 `
 
@@ -39,6 +79,13 @@ export const ControlsContainer = styled.div`
   align-items: center;
   flex-wrap: wrap;
   gap: ${({ theme }) => theme.spacing(4)};
+  padding: ${({ theme }) => theme.spacing(3)};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background-color: ${({ theme }) => theme.colors.background.card};
+
+  position: sticky;
+  top: 0;
+  z-index: 5;
 
   @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
     flex-direction: column;
@@ -56,6 +103,11 @@ export const CursorControls = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing(2)};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    width: 100%;
+    justify-content: center;
+  }
 `
 
 export const Button = styled.button`
@@ -80,6 +132,16 @@ export const Button = styled.button`
 
   .icon {
     font-size: 2rem;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+
+    &:hover {
+      background-color: ${({ theme }) => theme.colors.background.card};
+      border-color: ${({ theme }) => theme.colors.border};
+    }
   }
 `
 

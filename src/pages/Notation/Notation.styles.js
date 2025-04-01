@@ -2,14 +2,15 @@
 import styled from 'styled-components'
 
 export const NotationContainer = styled.div`
-  padding-top: 10rem;
+  padding-top: 0.5rem;
   padding-bottom: 2rem;
-  width: 90%;
-  max-width: 1200px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow-x: hidden;
 `
 
 export const PageTitle = styled.h1`
@@ -27,12 +28,40 @@ export const NotationSection = styled.div`
   gap: ${({ theme }) => theme.spacing(6)};
 `
 
+// New wrapper component to control the width of the notation display
+export const NotationWrapper = styled.div`
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto; /* Add horizontal scrolling if needed */
+  background-color: ${({ theme }) => theme.colors.background.paper};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  box-shadow: ${({ theme }) => theme.shadows.small};
+
+  /* Ensure the notation display takes full width on desktop */
+  @media (min-width: ${({ theme }) => theme.breakpoints.tablet}) {
+    min-width: 90vw;
+    margin-left: calc(-45vw + 50%);
+    margin-right: calc(-45vw + 50%);
+  }
+
+  /* Adjust for mobile */
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    max-width: 95%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+`
+
 export const InfoPanel = styled.div`
   padding: ${({ theme }) => theme.spacing(4)};
   background-color: ${({ theme }) => theme.colors.background.card};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   border: 1px solid ${({ theme }) => theme.colors.border};
   margin-top: ${({ theme }) => theme.spacing(4)};
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 
   h3 {
     font-size: 2rem;

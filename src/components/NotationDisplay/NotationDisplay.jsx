@@ -10,6 +10,7 @@ import {
   Button,
   NavigationButton,
   ZoomLevel,
+  HorizontalScrollContainer,
 } from './NotationDisplay.styles'
 
 /**
@@ -70,13 +71,24 @@ const defaultOptions = {
 const DEFAULT_SCORE_URL =
   'https://opensheetmusicdisplay.github.io/demo/sheets/MuzioClementi_SonatinaOpus36No1_Part1.xml'
 
-const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initialZoom = 1.0 }) => {
+const NotationDisplay = ({
+  scoreUrl = DEFAULT_SCORE_URL,
+  onNoteSelected,
+  initialZoom = 1.0,
+  onZoomIn,
+  onZoomOut,
+}) => {
   const osmdContainerRef = useRef(null)
   const osmdRef = useRef(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [zoom, setZoom] = useState(initialZoom)
   const [error, setError] = useState(null)
   const [isInitialized, setIsInitialized] = useState(false)
+
+  // Use zoom from props if provided
+  useEffect(() => {
+    setZoom(initialZoom)
+  }, [initialZoom])
 
   // Memoize the loadScore function to use in multiple effects
   const loadScore = useCallback(
@@ -91,6 +103,12 @@ const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initial
 
         // IMPORTANT: Only set zoom and render after successful load
         osmdRef.current.zoom = zoom
+
+        // Use horizontal scrolling for better viewing experience on wide screens
+        if (osmdContainerRef.current) {
+          osmdContainerRef.current.style.overflowX = 'auto'
+          osmdContainerRef.current.style.width = '100%'
+        }
 
         // Check if we can render before trying
         if (osmdRef.current.IsReadyToRender()) {
@@ -131,8 +149,16 @@ const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initial
     }
 
     try {
+      // Apply OSMD-specific styles
+      container.style.maxWidth = '100%'
+      container.style.width = '100%'
+
       // Create new OSMD instance
-      const osmd = new OpenSheetMusicDisplay(container, defaultOptions)
+      const osmd = new OpenSheetMusicDisplay(container, {
+        ...defaultOptions,
+        pageFormat: 'Endless', // Using endless scrolling format for better display
+        autoResize: true,
+      })
       osmd.setLogLevel('warn')
       osmdRef.current = osmd
       setIsInitialized(true)
@@ -173,11 +199,15 @@ const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initial
   }, [zoom, isLoaded])
 
   const handleZoomIn = () => {
-    setZoom(prevZoom => Math.min(prevZoom * 1.2, 3.0))
+    const newZoom = Math.min(zoom * 1.2, 3.0)
+    setZoom(newZoom)
+    if (onZoomIn) onZoomIn(newZoom)
   }
 
   const handleZoomOut = () => {
-    setZoom(prevZoom => Math.max(prevZoom / 1.2, 0.5))
+    const newZoom = Math.max(zoom / 1.2, 0.5)
+    setZoom(newZoom)
+    if (onZoomOut) onZoomOut(newZoom)
   }
 
   // Function to safely extract note information with proper error handling
@@ -313,7 +343,9 @@ const NotationDisplay = ({ scoreUrl = DEFAULT_SCORE_URL, onNoteSelected, initial
         </CursorControls>
       </ControlsContainer>
 
-      <NotationCanvas ref={osmdContainerRef} />
+      <HorizontalScrollContainer>
+        <NotationCanvas ref={osmdContainerRef} />
+      </HorizontalScrollContainer>
     </NotationDisplayContainer>
   )
 }

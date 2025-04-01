@@ -1,9 +1,15 @@
 // src/pages/Notation/Notation.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import NotationDisplay from '../../components/NotationDisplay'
 import ScoreSelector from '../../components/NotationDisplay/ScoreSelector'
-import { NotationContainer, PageTitle, NotationSection, InfoPanel } from './Notation.styles'
+import {
+  NotationContainer,
+  PageTitle,
+  NotationSection,
+  InfoPanel,
+  NotationWrapper,
+} from './Notation.styles'
 
 // Default score to load
 const DEFAULT_SCORE_URL =
@@ -12,6 +18,7 @@ const DEFAULT_SCORE_URL =
 const Notation = () => {
   const [scoreUrl, setScoreUrl] = useState(DEFAULT_SCORE_URL)
   const [currentNotes, setCurrentNotes] = useState([])
+  const [zoom, setZoom] = useState(1.0)
 
   // Handle when a note is selected in the notation display
   const handleNoteSelected = notes => {
@@ -45,6 +52,34 @@ const Notation = () => {
     setCurrentNotes([]) // Reset current notes when changing scores
   }
 
+  // Handle zoom change
+  const handleZoomIn = () => {
+    setZoom(prevZoom => Math.min(prevZoom * 1.2, 3.0))
+  }
+
+  const handleZoomOut = () => {
+    setZoom(prevZoom => Math.max(prevZoom / 1.2, 0.5))
+  }
+
+  // Adjust layout on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      // You could adjust zoom based on window width if needed
+      if (window.innerWidth < 768) {
+        setZoom(0.8) // Smaller zoom for mobile
+      }
+    }
+
+    // Set initial size
+    handleResize()
+
+    // Add event listener
+    window.addEventListener('resize', handleResize)
+
+    // Cleanup
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   return (
     <NotationContainer>
       <motion.div
@@ -57,11 +92,15 @@ const Notation = () => {
         <ScoreSelector onScoreChange={handleScoreChange} />
 
         <NotationSection>
-          <NotationDisplay
-            scoreUrl={scoreUrl}
-            onNoteSelected={handleNoteSelected}
-            initialZoom={1.0}
-          />
+          <NotationWrapper>
+            <NotationDisplay
+              scoreUrl={scoreUrl}
+              onNoteSelected={handleNoteSelected}
+              initialZoom={zoom}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+            />
+          </NotationWrapper>
 
           {currentNotes.length > 0 && (
             <InfoPanel>
