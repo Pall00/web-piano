@@ -79,6 +79,11 @@ const FooterPiano = () => {
       })
       playNote(note)
       console.warn(`Key down: ${note} (mouse)`)
+
+      // Notify listeners about the note being pressed
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({ note, action: 'pressed' })
+      }
     },
     [playNote],
   )
@@ -96,6 +101,11 @@ const FooterPiano = () => {
         stopNote(note)
         console.warn(`Key up: ${note} (mouse)`)
       }
+
+      // Notify listeners about the note being released
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({ note, action: 'released' })
+      }
     },
     [isSustainActive, stopNote],
   )
@@ -110,6 +120,11 @@ const FooterPiano = () => {
         })
         playNote(note)
         console.warn(`Mouse enter key: ${note}`)
+
+        // Notify listeners about the note being pressed
+        if (window.pianoEvents) {
+          window.pianoEvents.notify({ note, action: 'pressed' })
+        }
       }
     },
     [mouseIsDown, playNote],
@@ -125,6 +140,11 @@ const FooterPiano = () => {
         })
         stopNote(note)
         console.warn(`Mouse leave key: ${note}`)
+
+        // Notify listeners about the note being released
+        if (window.pianoEvents) {
+          window.pianoEvents.notify({ note, action: 'released' })
+        }
       }
     },
     [mouseIsDown, isSustainActive, stopNote],
@@ -140,6 +160,11 @@ const FooterPiano = () => {
       })
       playNote(note)
       console.warn(`Touch start: ${note}`)
+
+      // Notify listeners about the note being pressed
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({ note, action: 'pressed' })
+      }
     },
     [playNote],
   )
@@ -154,6 +179,11 @@ const FooterPiano = () => {
       if (!isSustainActive) {
         stopNote(note)
         console.warn(`Touch end: ${note}`)
+      }
+
+      // Notify listeners about the note being released
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({ note, action: 'released' })
       }
     },
     [isSustainActive, stopNote],
@@ -177,6 +207,11 @@ const FooterPiano = () => {
           notesToRelease.forEach(note => {
             stopNote(note)
             console.warn(`Global mouse up: releasing ${note}`)
+
+            // Notify listeners about notes being released
+            if (window.pianoEvents) {
+              window.pianoEvents.notify({ note, action: 'released' })
+            }
           })
         } else {
           // Just clear the touched notes without stopping them (sustain is on)
@@ -201,6 +236,11 @@ const FooterPiano = () => {
       })
       playNote(note)
       console.warn(`MIDI note on: ${note}`)
+
+      // Notify listeners about the note being pressed
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({ note, action: 'pressed' })
+      }
     },
     onNoteOff: note => {
       setTouchedNotes(prev => {
@@ -211,6 +251,11 @@ const FooterPiano = () => {
       if (!isSustainActive) {
         stopNote(note)
         console.warn(`MIDI note off: ${note}`)
+      }
+
+      // Notify listeners about the note being released
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({ note, action: 'released' })
       }
     },
     onSustainChange: isActive => setSustain(isActive),
@@ -233,6 +278,18 @@ const FooterPiano = () => {
           console.warn(`Piano playing note: ${noteId}`)
 
           playNote(noteId)
+
+          // Notify listeners about the note being played
+          if (window.pianoEvents) {
+            window.pianoEvents.notify({ note: noteId, action: 'pressed' })
+
+            // After a short delay, simulate note release (for non-sustained notes)
+            setTimeout(() => {
+              if (!isSustainActive && window.pianoEvents) {
+                window.pianoEvents.notify({ note: noteId, action: 'released' })
+              }
+            }, 500)
+          }
         } catch (err) {
           console.error(`Error playing note ${noteId}:`, err)
         }
@@ -267,7 +324,7 @@ const FooterPiano = () => {
     return () => {
       setPianoInstance(null)
     }
-  }, [playNote]) // Add playNote as a dependency
+  }, [playNote, isSustainActive]) // Add isSustainActive as a dependency
 
   // Check if connected to a Port-1 device
   const isPort1Device =

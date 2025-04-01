@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import NotationDisplay from '../../components/NotationDisplay'
+import useNoteMatching from '../../hooks/useNoteMatching'
 import {
   NotationContainer,
   PageTitle,
@@ -19,9 +20,15 @@ const Notation = () => {
   const [currentNotes, setCurrentNotes] = useState([])
   const [zoom, setZoom] = useState(1.0)
 
+  // Add the note matching hook
+  const { activeNotes, setCurrentNotesUnderCursor, isMatched } = useNoteMatching()
+
   // Handle when a note is selected in the notation display
   const handleNoteSelected = notes => {
     setCurrentNotes(notes)
+
+    // Pass the notes to our matching hook
+    setCurrentNotesUnderCursor(notes)
 
     // If there are notes to play and the piano bridge is available
     if (notes.length > 0) {
@@ -59,6 +66,24 @@ const Notation = () => {
   const handleZoomOut = newZoom => {
     setZoom(newZoom)
   }
+
+  // Auto-advance cursor when notes match (optional)
+  useEffect(() => {
+    // If notes match and auto-advance is enabled (could be a setting in the future)
+    const autoAdvance = true // This could be a setting toggle
+
+    if (isMatched && autoAdvance) {
+      // Add a slight delay before advancing to next note
+      const timer = setTimeout(() => {
+        // If we have a reference to the notation display's next function, call it
+        if (window.advanceNotationCursor) {
+          window.advanceNotationCursor()
+        }
+      }, 300) // Short delay so user can see the match
+
+      return () => clearTimeout(timer)
+    }
+  }, [isMatched])
 
   // Adjust layout on window resize
   useEffect(() => {
@@ -102,10 +127,20 @@ const Notation = () => {
 
           {currentNotes.length > 0 && (
             <InfoPanel>
-              <h3>Current Notes</h3>
+              <h3>
+                Current Notes
+                {isMatched && (
+                  <span style={{ color: 'green', marginLeft: '10px' }}>✓ Correct!</span>
+                )}
+              </h3>
               <ul>
                 {currentNotes.map((note, index) => (
-                  <li key={index}>
+                  <li
+                    key={index}
+                    style={{
+                      color: activeNotes.includes(note.name) ? 'green' : 'inherit',
+                    }}
+                  >
                     {note.name} {note.midiNote ? `(MIDI: ${note.midiNote})` : ''}
                     {note.duration ? ` - Duration: ${note.duration}` : ''}
                   </li>

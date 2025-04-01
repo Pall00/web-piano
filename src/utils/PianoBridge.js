@@ -8,6 +8,9 @@
 // Store a reference to the piano component instance
 let pianoInstance = null
 
+// Array to store note event listeners
+let noteListeners = []
+
 /**
  * Normalizes a note name to match the format expected by the piano
  * @param {string} noteName - The note name to normalize (e.g., "C4", "D#3", "Eb5")
@@ -113,6 +116,20 @@ export const setPianoInstance = instance => {
 
   window.highlightPianoChord = noteNames => {
     highlightChord(noteNames)
+  }
+
+  // Make the subscription system available globally
+  window.pianoEvents = {
+    subscribe: callback => {
+      noteListeners.push(callback)
+      // Return function to unsubscribe
+      return () => {
+        noteListeners = noteListeners.filter(cb => cb !== callback)
+      }
+    },
+    notify: noteInfo => {
+      noteListeners.forEach(callback => callback(noteInfo))
+    },
   }
 }
 
