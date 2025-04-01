@@ -17,6 +17,8 @@ import {
   SelectorLabel,
   UploadButton,
   FileInput,
+  SettingsToggle,
+  SettingsContainer,
 } from './NotationDisplay.styles'
 
 const DEFAULT_SCORE_URL =
@@ -83,6 +85,7 @@ const NotationDisplay = ({
   onZoomIn,
   onZoomOut,
   onScoreChange,
+  onSettingsChange,
 }) => {
   const osmdContainerRef = useRef(null)
   const osmdRef = useRef(null)
@@ -91,6 +94,10 @@ const NotationDisplay = ({
   const [error, setError] = useState(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [selectedScore, setSelectedScore] = useState(SAMPLE_SCORES[0].id)
+
+  // Add settings state
+  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true)
+  const [autoPlayEnabled, setAutoPlayEnabled] = useState(true)
 
   // Use zoom from props if provided
   useEffect(() => {
@@ -314,7 +321,7 @@ const NotationDisplay = ({
     }
   }
 
-  const handleNextNote = () => {
+  const handleNextNote = useCallback(() => {
     if (!osmdRef.current?.cursor || !isLoaded) return
 
     try {
@@ -324,15 +331,15 @@ const NotationDisplay = ({
       if (notesUnderCursor?.length > 0 && onNoteSelected) {
         const notes = extractNotesInfo(notesUnderCursor)
         if (notes.length > 0) {
-          onNoteSelected(notes)
+          onNoteSelected(notes, { autoPlay: autoPlayEnabled })
         }
       }
     } catch (err) {
       console.error('Error navigating to next note:', err)
     }
-  }
+  }, [onNoteSelected, autoPlayEnabled])
 
-  const handlePrevNote = () => {
+  const handlePrevNote = useCallback(() => {
     if (!osmdRef.current?.cursor || !isLoaded) return
 
     try {
@@ -342,23 +349,69 @@ const NotationDisplay = ({
       if (notesUnderCursor?.length > 0 && onNoteSelected) {
         const notes = extractNotesInfo(notesUnderCursor)
         if (notes.length > 0) {
-          onNoteSelected(notes)
+          onNoteSelected(notes, { autoPlay: autoPlayEnabled })
         }
       }
     } catch (err) {
       console.error('Error navigating to previous note:', err)
     }
-  }
+  }, [onNoteSelected, autoPlayEnabled])
 
-  const handleResetCursor = () => {
+  const handleResetCursor = useCallback(() => {
     if (osmdRef.current?.cursor && isLoaded) {
       try {
         osmdRef.current.cursor.reset()
+        // Get notes under cursor after reset
+        const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
+
+        if (notesUnderCursor?.length > 0 && onNoteSelected) {
+          const notes = extractNotesInfo(notesUnderCursor)
+          if (notes.length > 0) {
+            onNoteSelected(notes, { autoPlay: autoPlayEnabled })
+          }
+        }
       } catch (err) {
         console.error('Error resetting cursor:', err)
       }
     }
+  }, [onNoteSelected, autoPlayEnabled])
+
+  // Toggle handlers for settings
+  const toggleAutoAdvance = () => {
+    const newValue = !autoAdvanceEnabled
+    setAutoAdvanceEnabled(newValue)
+
+    // Notify parent component of the change
+    if (onSettingsChange) {
+      onSettingsChange({ autoAdvance: newValue })
+    }
   }
+
+  const toggleAutoPlay = () => {
+    const newValue = !autoPlayEnabled
+    setAutoPlayEnabled(newValue)
+
+    // Notify parent component of the change
+    if (onSettingsChange) {
+      onSettingsChange({ autoPlay: newValue })
+    }
+  }
+
+  // Expose cursor control functions globally
+  useEffect(() => {
+    // Make cursor navigation functions accessible to other components
+    window.notationCursor = {
+      next: handleNextNote,
+      previous: handlePrevNote,
+      reset: handleResetCursor,
+      autoAdvance: autoAdvanceEnabled,
+    }
+
+    // Cleanup on unmount
+    return () => {
+      window.notationCursor = null
+    }
+  }, [handleNextNote, handlePrevNote, handleResetCursor, autoAdvanceEnabled])
 
   // Handle score selection change
   const handleScoreChange = e => {
@@ -439,6 +492,29 @@ const NotationDisplay = ({
           <NavigationButton onClick={handleNextNote} disabled={!isLoaded}>
             Next
           </NavigationButton>
+
+          {/* Settings toggles */}
+          <SettingsContainer>
+            <SettingsToggle>
+              <input
+                type="checkbox"
+                id="auto-advance"
+                checked={autoAdvanceEnabled}
+                onChange={toggleAutoAdvance}
+              />
+              <label htmlFor="auto-advance">Auto-advance</label>
+            </SettingsToggle>
+
+            <SettingsToggle>
+              <input
+                type="checkbox"
+                id="auto-play"
+                checked={autoPlayEnabled}
+                onChange={toggleAutoPlay}
+              />
+              <label htmlFor="auto-play">Auto-play notes</label>
+            </SettingsToggle>
+          </SettingsContainer>
         </CursorControls>
       </ControlsContainer>
 

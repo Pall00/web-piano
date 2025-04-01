@@ -80,9 +80,13 @@ const FooterPiano = () => {
       playNote(note)
       console.warn(`Key down: ${note} (mouse)`)
 
-      // Notify listeners about the note being pressed
+      // Notify listeners about the note being pressed by the user
       if (window.pianoEvents) {
-        window.pianoEvents.notify({ note, action: 'pressed' })
+        window.pianoEvents.notify({
+          note,
+          action: 'pressed',
+          source: 'user',
+        })
       }
     },
     [playNote],
@@ -102,9 +106,13 @@ const FooterPiano = () => {
         console.warn(`Key up: ${note} (mouse)`)
       }
 
-      // Notify listeners about the note being released
+      // Notify listeners about the note being released by the user
       if (window.pianoEvents) {
-        window.pianoEvents.notify({ note, action: 'released' })
+        window.pianoEvents.notify({
+          note,
+          action: 'released',
+          source: 'user',
+        })
       }
     },
     [isSustainActive, stopNote],
@@ -121,9 +129,13 @@ const FooterPiano = () => {
         playNote(note)
         console.warn(`Mouse enter key: ${note}`)
 
-        // Notify listeners about the note being pressed
+        // Notify listeners about the note being pressed by the user
         if (window.pianoEvents) {
-          window.pianoEvents.notify({ note, action: 'pressed' })
+          window.pianoEvents.notify({
+            note,
+            action: 'pressed',
+            source: 'user',
+          })
         }
       }
     },
@@ -141,9 +153,13 @@ const FooterPiano = () => {
         stopNote(note)
         console.warn(`Mouse leave key: ${note}`)
 
-        // Notify listeners about the note being released
+        // Notify listeners about the note being released by the user
         if (window.pianoEvents) {
-          window.pianoEvents.notify({ note, action: 'released' })
+          window.pianoEvents.notify({
+            note,
+            action: 'released',
+            source: 'user',
+          })
         }
       }
     },
@@ -161,9 +177,13 @@ const FooterPiano = () => {
       playNote(note)
       console.warn(`Touch start: ${note}`)
 
-      // Notify listeners about the note being pressed
+      // Notify listeners about the note being pressed by the user
       if (window.pianoEvents) {
-        window.pianoEvents.notify({ note, action: 'pressed' })
+        window.pianoEvents.notify({
+          note,
+          action: 'pressed',
+          source: 'user',
+        })
       }
     },
     [playNote],
@@ -181,9 +201,13 @@ const FooterPiano = () => {
         console.warn(`Touch end: ${note}`)
       }
 
-      // Notify listeners about the note being released
+      // Notify listeners about the note being released by the user
       if (window.pianoEvents) {
-        window.pianoEvents.notify({ note, action: 'released' })
+        window.pianoEvents.notify({
+          note,
+          action: 'released',
+          source: 'user',
+        })
       }
     },
     [isSustainActive, stopNote],
@@ -208,9 +232,13 @@ const FooterPiano = () => {
             stopNote(note)
             console.warn(`Global mouse up: releasing ${note}`)
 
-            // Notify listeners about notes being released
+            // Notify listeners about notes being released by the user
             if (window.pianoEvents) {
-              window.pianoEvents.notify({ note, action: 'released' })
+              window.pianoEvents.notify({
+                note,
+                action: 'released',
+                source: 'user',
+              })
             }
           })
         } else {
@@ -237,9 +265,13 @@ const FooterPiano = () => {
       playNote(note)
       console.warn(`MIDI note on: ${note}`)
 
-      // Notify listeners about the note being pressed
+      // Notify listeners about the note being pressed by the user (via MIDI)
       if (window.pianoEvents) {
-        window.pianoEvents.notify({ note, action: 'pressed' })
+        window.pianoEvents.notify({
+          note,
+          action: 'pressed',
+          source: 'user',
+        })
       }
     },
     onNoteOff: note => {
@@ -253,9 +285,13 @@ const FooterPiano = () => {
         console.warn(`MIDI note off: ${note}`)
       }
 
-      // Notify listeners about the note being released
+      // Notify listeners about the note being released by the user (via MIDI)
       if (window.pianoEvents) {
-        window.pianoEvents.notify({ note, action: 'released' })
+        window.pianoEvents.notify({
+          note,
+          action: 'released',
+          source: 'user',
+        })
       }
     },
     onSustainChange: isActive => setSustain(isActive),
@@ -273,23 +309,9 @@ const FooterPiano = () => {
         if (!noteId) return
 
         try {
-          // Don't need to replace '#' with 's' anymore, that's handled in PianoBridge
           // Just use the note as-is
           console.warn(`Piano playing note: ${noteId}`)
-
           playNote(noteId)
-
-          // Notify listeners about the note being played
-          if (window.pianoEvents) {
-            window.pianoEvents.notify({ note: noteId, action: 'pressed' })
-
-            // After a short delay, simulate note release (for non-sustained notes)
-            setTimeout(() => {
-              if (!isSustainActive && window.pianoEvents) {
-                window.pianoEvents.notify({ note: noteId, action: 'released' })
-              }
-            }, 500)
-          }
         } catch (err) {
           console.error(`Error playing note ${noteId}:`, err)
         }
@@ -324,7 +346,7 @@ const FooterPiano = () => {
     return () => {
       setPianoInstance(null)
     }
-  }, [playNote, isSustainActive]) // Add isSustainActive as a dependency
+  }, [playNote]) // Add playNote as a dependency
 
   // Check if connected to a Port-1 device
   const isPort1Device =

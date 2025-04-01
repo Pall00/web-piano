@@ -20,34 +20,46 @@ const Notation = () => {
   const [currentNotes, setCurrentNotes] = useState([])
   const [zoom, setZoom] = useState(1.0)
 
+  // Settings moved to the top controls
+  const [autoPlayEnabled, setAutoPlayEnabled] = useState(true)
+  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true)
+
   // Add the note matching hook
-  const { activeNotes, setCurrentNotesUnderCursor, isMatched } = useNoteMatching()
+  const { activeNotes, matchedNotes, setCurrentNotesUnderCursor, isMatched } = useNoteMatching()
 
   // Handle when a note is selected in the notation display
-  const handleNoteSelected = notes => {
+  const handleNoteSelected = (notes, options = {}) => {
     setCurrentNotes(notes)
 
     // Pass the notes to our matching hook
     setCurrentNotesUnderCursor(notes)
 
-    // If there are notes to play and the piano bridge is available
-    if (notes.length > 0) {
+    // Check if auto-play should be used - prefer options from the event over state
+    const shouldAutoPlay = options.autoPlay !== undefined ? options.autoPlay : autoPlayEnabled
+
+    // If there are notes to play and auto-play is enabled
+    if (notes.length > 0 && shouldAutoPlay) {
       // If it's a chord (multiple notes)
       if (notes.length > 1) {
         // Play as a chord if we have the function available
         if (window.playPianoChord) {
-          window.playPianoChord(notes.map(note => note.name))
+          // Play chord with demo source tag
+          window.playPianoChord(
+            notes.map(note => note.name),
+            { source: 'demo' },
+          )
         } else if (window.playPianoNote) {
           // Otherwise play notes individually with a tiny delay
           notes.forEach((note, index) => {
             setTimeout(() => {
-              window.playPianoNote(note.name)
+              // Play each note with demo source tag
+              window.playPianoNote(note.name, { source: 'demo' })
             }, index * 20) // 20ms delay between notes
           })
         }
       } else if (window.playPianoNote) {
-        // Single note
-        window.playPianoNote(notes[0].name)
+        // Single note - play with demo source tag
+        window.playPianoNote(notes[0].name, { source: 'demo' })
       }
     }
   }
@@ -67,23 +79,29 @@ const Notation = () => {
     setZoom(newZoom)
   }
 
-  // Auto-advance cursor when notes match (optional)
-  useEffect(() => {
-    // If notes match and auto-advance is enabled (could be a setting in the future)
-    const autoAdvance = true // This could be a setting toggle
+  // Handle settings changes from NotationDisplay
+  const handleSettingsChange = settings => {
+    if (settings.autoPlay !== undefined) {
+      setAutoPlayEnabled(settings.autoPlay)
+    }
+    if (settings.autoAdvance !== undefined) {
+      setAutoAdvanceEnabled(settings.autoAdvance)
+    }
+  }
 
-    if (isMatched && autoAdvance) {
+  // Auto-advance cursor when notes match
+  useEffect(() => {
+    if (isMatched && autoAdvanceEnabled && currentNotes.length > 0) {
       // Add a slight delay before advancing to next note
       const timer = setTimeout(() => {
-        // If we have a reference to the notation display's next function, call it
-        if (window.advanceNotationCursor) {
-          window.advanceNotationCursor()
+        if (window.notationCursor?.next) {
+          window.notationCursor.next()
         }
-      }, 300) // Short delay so user can see the match
+      }, 100) // Short delay for faster response
 
       return () => clearTimeout(timer)
     }
-  }, [isMatched])
+  }, [isMatched, autoAdvanceEnabled, currentNotes])
 
   // Adjust layout on window resize
   useEffect(() => {
@@ -122,6 +140,7 @@ const Notation = () => {
               onZoomIn={handleZoomIn}
               onZoomOut={handleZoomOut}
               onScoreChange={handleScoreChange}
+              onSettingsChange={handleSettingsChange}
             />
           </NotationWrapper>
 
@@ -138,7 +157,11 @@ const Notation = () => {
                   <li
                     key={index}
                     style={{
-                      color: activeNotes.includes(note.name) ? 'green' : 'inherit',
+                      color: matchedNotes.includes(note.name)
+                        ? 'green'
+                        : activeNotes.includes(note.name)
+                          ? 'blue'
+                          : 'inherit',
                     }}
                   >
                     {note.name} {note.midiNote ? `(MIDI: ${note.midiNote})` : ''}

@@ -100,13 +100,13 @@ export const setPianoInstance = instance => {
   pianoInstance = instance
 
   // Make the playNote function available globally for easier access from components
-  window.playPianoNote = noteName => {
-    playNote(noteName)
+  window.playPianoNote = (noteName, options = {}) => {
+    playNote(noteName, options)
   }
 
   // Make the playChord function available globally
-  window.playPianoChord = noteNames => {
-    playChord(noteNames)
+  window.playPianoChord = (noteNames, options = {}) => {
+    playChord(noteNames, options)
   }
 
   // Make the highlight functions available globally
@@ -128,7 +128,13 @@ export const setPianoInstance = instance => {
       }
     },
     notify: noteInfo => {
-      noteListeners.forEach(callback => callback(noteInfo))
+      // Ensure the event has a source property
+      const eventWithSource = {
+        ...noteInfo,
+        // Default to "user" if no source is provided
+        source: noteInfo.source || 'user',
+      }
+      noteListeners.forEach(callback => callback(eventWithSource))
     },
   }
 }
@@ -136,8 +142,10 @@ export const setPianoInstance = instance => {
 /**
  * Play a note on the piano
  * @param {string} noteName - The name of the note to play (e.g., "C4", "D#3")
+ * @param {object} options - Additional options for playing the note
+ * @param {string} options.source - The source of the note event (e.g., "user", "demo")
  */
-export const playNote = noteName => {
+export const playNote = (noteName, options = {}) => {
   if (!pianoInstance) {
     console.warn('Piano instance not set. Call setPianoInstance first.')
     return
@@ -149,6 +157,24 @@ export const playNote = noteName => {
 
     console.warn(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
 
+    // Notify listeners with the provided source
+    if (window.pianoEvents) {
+      window.pianoEvents.notify({
+        note: normalizedNote,
+        action: 'pressed',
+        source: options.source || 'program',
+      })
+
+      // After a short delay, simulate note release (for non-sustained notes)
+      setTimeout(() => {
+        window.pianoEvents.notify({
+          note: normalizedNote,
+          action: 'released',
+          source: options.source || 'program',
+        })
+      }, 300)
+    }
+
     // Play the note using the piano instance
     pianoInstance.playNote(normalizedNote)
   } catch (err) {
@@ -159,14 +185,16 @@ export const playNote = noteName => {
 /**
  * Play multiple notes simultaneously (chord)
  * @param {string[]} noteNames - Array of note names to play
+ * @param {object} options - Additional options for playing the note
+ * @param {string} options.source - The source of the note event (e.g., "user", "demo")
  */
-export const playChord = noteNames => {
+export const playChord = (noteNames, options = {}) => {
   if (!Array.isArray(noteNames) || noteNames.length === 0) {
     return
   }
 
   noteNames.forEach(noteName => {
-    playNote(noteName)
+    playNote(noteName, options)
   })
 }
 

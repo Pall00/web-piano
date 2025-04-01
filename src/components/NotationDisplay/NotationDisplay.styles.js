@@ -121,6 +121,7 @@ export const CursorControls = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing(2)};
+  flex-wrap: wrap;
 
   @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
     width: 100%;
@@ -184,6 +185,41 @@ export const ZoomLevel = styled.div`
   text-align: center;
   font-weight: 500;
   font-size: 1.6rem;
+`
+
+// Added settings styles
+export const SettingsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing(4)};
+  margin-left: ${({ theme }) => theme.spacing(2)};
+  padding: ${({ theme }) => theme.spacing(2)} ${({ theme }) => theme.spacing(4)};
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: ${({ theme }) => theme.borderRadius.small};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
+    margin-left: 0;
+    margin-top: ${({ theme }) => theme.spacing(2)};
+    width: 100%;
+    justify-content: center;
+  }
+`
+
+export const SettingsToggle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing(2)};
+
+  input[type='checkbox'] {
+    margin: 0;
+  }
+
+  label {
+    font-size: 1.4rem;
+    font-weight: 500;
+    white-space: nowrap;
+    user-select: none;
+  }
 `
 
 // Imported and adapted from ScoreSelector.styles.js
