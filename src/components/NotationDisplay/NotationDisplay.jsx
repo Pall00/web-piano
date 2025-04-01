@@ -1,6 +1,7 @@
 // src/components/NotationDisplay/NotationDisplay.jsx
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
+import { SAMPLE_SCORES } from '../../data/scoreData'
 import {
   NotationDisplayContainer,
   NotationCanvas,
@@ -17,6 +18,9 @@ import {
   UploadButton,
   FileInput,
 } from './NotationDisplay.styles'
+
+const DEFAULT_SCORE_URL =
+  'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml'
 
 /**
  * Converts a MIDI note number to a standard notation note name
@@ -71,39 +75,6 @@ const defaultOptions = {
   // Set a neutral backend that will work in all browsers
   backend: 'svg',
 }
-
-// Default MusicXML to show if none provided
-const DEFAULT_SCORE_URL =
-  'https://opensheetmusicdisplay.github.io/demo/sheets/MuzioClementi_SonatinaOpus36No1_Part1.xml'
-
-// Sample selection of scores - these URLs would ideally come from a backend or config
-const SAMPLE_SCORES = [
-  {
-    id: 'beginner1',
-    name: 'Mary Had a Little Lamb',
-    url: 'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml',
-  },
-  {
-    id: 'beginner2',
-    name: 'Twinkle Twinkle Little Star',
-    url: 'https://opensheetmusicdisplay.github.io/demo/JohannSebastianBach_PraeludiumInCDur_BWV846_1.xml',
-  },
-  {
-    id: 'intermediate1',
-    name: 'Bach: Air',
-    url: 'https://opensheetmusicdisplay.github.io/demo/JohannSebastianBach_Air.xml',
-  },
-  {
-    id: 'intermediate2',
-    name: 'Mozart: An Chloe',
-    url: 'https://opensheetmusicdisplay.github.io/demo/Mozart_AnChloe.xml',
-  },
-  {
-    id: 'advanced1',
-    name: 'Joplin: The Entertainer',
-    url: 'https://opensheetmusicdisplay.github.io/demo/ScottJoplin_The_Entertainer.xml',
-  },
-]
 
 const NotationDisplay = ({
   scoreUrl = DEFAULT_SCORE_URL,

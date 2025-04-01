@@ -7,35 +7,7 @@ import {
   UploadButton,
   FileInput,
 } from './ScoreSelector.styles'
-
-// Sample selection of scores - these URLs would ideally come from a backend or config
-const SAMPLE_SCORES = [
-  {
-    id: 'beginner1',
-    name: 'Mary Had a Little Lamb',
-    url: 'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml',
-  },
-  {
-    id: 'beginner2',
-    name: 'Twinkle Twinkle Little Star',
-    url: 'https://opensheetmusicdisplay.github.io/demo/JohannSebastianBach_PraeludiumInCDur_BWV846_1.xml',
-  },
-  {
-    id: 'intermediate1',
-    name: 'Bach: Air',
-    url: 'https://opensheetmusicdisplay.github.io/demo/JohannSebastianBach_Air.xml',
-  },
-  {
-    id: 'intermediate2',
-    name: 'Mozart: An Chloe',
-    url: 'https://opensheetmusicdisplay.github.io/demo/Mozart_AnChloe.xml',
-  },
-  {
-    id: 'advanced1',
-    name: 'Joplin: The Entertainer',
-    url: 'https://opensheetmusicdisplay.github.io/demo/ScottJoplin_The_Entertainer.xml',
-  },
-]
+import { SAMPLE_SCORES } from '../../data/scoreData'
 
 const ScoreSelector = ({ onScoreChange }) => {
   const [selectedScore, setSelectedScore] = useState(SAMPLE_SCORES[0].id)
