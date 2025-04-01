@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import NotationDisplay from '../../components/NotationDisplay'
-import ScoreSelector from '../../components/NotationDisplay/ScoreSelector'
 import {
   NotationContainer,
   PageTitle,
@@ -53,12 +52,12 @@ const Notation = () => {
   }
 
   // Handle zoom change
-  const handleZoomIn = () => {
-    setZoom(prevZoom => Math.min(prevZoom * 1.2, 3.0))
+  const handleZoomIn = newZoom => {
+    setZoom(newZoom)
   }
 
-  const handleZoomOut = () => {
-    setZoom(prevZoom => Math.max(prevZoom / 1.2, 0.5))
+  const handleZoomOut = newZoom => {
+    setZoom(newZoom)
   }
 
   // Adjust layout on window resize
@@ -89,8 +88,6 @@ const Notation = () => {
       >
         <PageTitle>Notation Practice</PageTitle>
 
-        <ScoreSelector onScoreChange={handleScoreChange} />
-
         <NotationSection>
           <NotationWrapper>
             <NotationDisplay
@@ -99,6 +96,7 @@ const Notation = () => {
               initialZoom={zoom}
               onZoomIn={handleZoomIn}
               onZoomOut={handleZoomOut}
+              onScoreChange={handleScoreChange}
             />
           </NotationWrapper>
 

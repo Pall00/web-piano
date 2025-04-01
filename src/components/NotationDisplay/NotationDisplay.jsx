@@ -6,11 +6,16 @@ import {
   NotationCanvas,
   ControlsContainer,
   ZoomControls,
+  ScoreSelectorControls,
   CursorControls,
   Button,
   NavigationButton,
   ZoomLevel,
   HorizontalScrollContainer,
+  Select,
+  SelectorLabel,
+  UploadButton,
+  FileInput,
 } from './NotationDisplay.styles'
 
 /**
@@ -71,12 +76,42 @@ const defaultOptions = {
 const DEFAULT_SCORE_URL =
   'https://opensheetmusicdisplay.github.io/demo/sheets/MuzioClementi_SonatinaOpus36No1_Part1.xml'
 
+// Sample selection of scores - these URLs would ideally come from a backend or config
+const SAMPLE_SCORES = [
+  {
+    id: 'beginner1',
+    name: 'Mary Had a Little Lamb',
+    url: 'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml',
+  },
+  {
+    id: 'beginner2',
+    name: 'Twinkle Twinkle Little Star',
+    url: 'https://opensheetmusicdisplay.github.io/demo/JohannSebastianBach_PraeludiumInCDur_BWV846_1.xml',
+  },
+  {
+    id: 'intermediate1',
+    name: 'Bach: Air',
+    url: 'https://opensheetmusicdisplay.github.io/demo/JohannSebastianBach_Air.xml',
+  },
+  {
+    id: 'intermediate2',
+    name: 'Mozart: An Chloe',
+    url: 'https://opensheetmusicdisplay.github.io/demo/Mozart_AnChloe.xml',
+  },
+  {
+    id: 'advanced1',
+    name: 'Joplin: The Entertainer',
+    url: 'https://opensheetmusicdisplay.github.io/demo/ScottJoplin_The_Entertainer.xml',
+  },
+]
+
 const NotationDisplay = ({
   scoreUrl = DEFAULT_SCORE_URL,
   onNoteSelected,
   initialZoom = 1.0,
   onZoomIn,
   onZoomOut,
+  onScoreChange,
 }) => {
   const osmdContainerRef = useRef(null)
   const osmdRef = useRef(null)
@@ -84,6 +119,7 @@ const NotationDisplay = ({
   const [zoom, setZoom] = useState(initialZoom)
   const [error, setError] = useState(null)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [selectedScore, setSelectedScore] = useState(SAMPLE_SCORES[0].id)
 
   // Use zoom from props if provided
   useEffect(() => {
@@ -313,6 +349,41 @@ const NotationDisplay = ({
     }
   }
 
+  // Handle score selection change
+  const handleScoreChange = e => {
+    const scoreId = e.target.value
+    setSelectedScore(scoreId)
+
+    const selectedScoreData = SAMPLE_SCORES.find(score => score.id === scoreId)
+    if (selectedScoreData && onScoreChange) {
+      onScoreChange(selectedScoreData.url)
+    }
+  }
+
+  // Handle file upload
+  const handleFileUpload = e => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    // Check if file is MusicXML
+    if (
+      file.name.endsWith('.xml') ||
+      file.name.endsWith('.musicxml') ||
+      file.name.endsWith('.mxl')
+    ) {
+      // Create a URL for the file
+      const fileUrl = URL.createObjectURL(file)
+      if (onScoreChange) {
+        onScoreChange(fileUrl)
+      }
+
+      // Reset the select to a custom option
+      setSelectedScore('custom')
+    } else {
+      alert('Please upload a MusicXML file (.xml, .musicxml, or .mxl)')
+    }
+  }
+
   return (
     <NotationDisplayContainer>
       {error && <div className="error-message">{error}</div>}
@@ -329,6 +400,23 @@ const NotationDisplay = ({
             <span className="icon">+</span>
           </Button>
         </ZoomControls>
+
+        <ScoreSelectorControls>
+          <SelectorLabel>Score:</SelectorLabel>
+          <Select value={selectedScore} onChange={handleScoreChange}>
+            {SAMPLE_SCORES.map(score => (
+              <option key={score.id} value={score.id}>
+                {score.name}
+              </option>
+            ))}
+            {selectedScore === 'custom' && <option value="custom">Custom Upload</option>}
+          </Select>
+
+          <UploadButton>
+            Upload
+            <FileInput type="file" accept=".xml,.musicxml,.mxl" onChange={handleFileUpload} />
+          </UploadButton>
+        </ScoreSelectorControls>
 
         <CursorControls>
           <NavigationButton onClick={handleResetCursor} disabled={!isLoaded}>
