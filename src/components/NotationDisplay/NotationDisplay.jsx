@@ -74,6 +74,8 @@ const defaultOptions = {
   drawMeasureNumbers: true,
   drawTimeSignatures: true,
   drawFingerings: true,
+  // Add horizontal mode option (controlled by state)
+  renderSingleHorizontalStaffline: false,
   // Set a neutral backend that will work in all browsers
   backend: 'svg',
 }
@@ -98,6 +100,8 @@ const NotationDisplay = ({
   // Add settings state
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true)
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true)
+  // Add horizontal mode state
+  const [horizontalMode, setHorizontalMode] = useState(false)
 
   // Use zoom from props if provided
   useEffect(() => {
@@ -113,15 +117,54 @@ const NotationDisplay = ({
       setError(null)
 
       try {
+        // Calculate container width for horizontal mode
+        let containerWidth = 800 // Default fallback width
+        if (osmdContainerRef.current) {
+          const parentElement = osmdContainerRef.current.parentElement
+          if (parentElement) {
+            containerWidth = parentElement.clientWidth - 20 // Leave a small margin
+          }
+        }
+
+        // Update options based on horizontal mode setting
+        if (horizontalMode) {
+          osmdRef.current.setOptions({
+            ...defaultOptions,
+            renderSingleHorizontalStaffline: true,
+            autoResize: false,
+            pageFormat: 'Endless',
+          })
+
+          // Set explicit width for horizontal mode
+          if (osmdRef.current.EngravingRules) {
+            osmdRef.current.EngravingRules.PageWidth = containerWidth
+          }
+        } else {
+          osmdRef.current.setOptions({
+            ...defaultOptions,
+            renderSingleHorizontalStaffline: false,
+            autoResize: true,
+            pageFormat: 'Endless',
+          })
+        }
+
         await osmdRef.current.load(url)
 
         // IMPORTANT: Only set zoom and render after successful load
         osmdRef.current.zoom = zoom
 
-        // Use horizontal scrolling for better viewing experience on wide screens
+        // Force container styling
         if (osmdContainerRef.current) {
-          osmdContainerRef.current.style.overflowX = 'auto'
-          osmdContainerRef.current.style.width = '100%'
+          if (horizontalMode) {
+            // For horizontal mode, control overflow
+            osmdContainerRef.current.style.width = containerWidth + 'px'
+            osmdContainerRef.current.style.overflowX = 'visible'
+            osmdContainerRef.current.parentElement.style.overflowX = 'auto'
+          } else {
+            // For vertical mode, allow content to determine dimensions
+            osmdContainerRef.current.style.width = '100%'
+            osmdContainerRef.current.style.overflowX = 'auto'
+          }
         }
 
         // Check if we can render before trying
@@ -147,7 +190,7 @@ const NotationDisplay = ({
         setError('Failed to load sheet music')
       }
     },
-    [zoom],
+    [zoom, horizontalMode],
   )
 
   // Initialize OSMD
@@ -167,14 +210,34 @@ const NotationDisplay = ({
       container.style.maxWidth = '100%'
       container.style.width = '100%'
 
-      // Create new OSMD instance
-      const osmd = new OpenSheetMusicDisplay(container, {
-        ...defaultOptions,
-        pageFormat: 'Endless', // Using endless scrolling format for better display
-        autoResize: true,
-      })
-      osmd.setLogLevel('warn')
-      osmdRef.current = osmd
+      // Set a fixed width for horizontal mode to maintain scrollability
+      if (horizontalMode) {
+        // Use the parent container's width for rendering
+        // This ensures we don't expand beyond the screen width
+        const parentWidth = container.parentElement.clientWidth
+
+        // Create new OSMD instance with fixed width
+        const osmd = new OpenSheetMusicDisplay(container, {
+          ...defaultOptions,
+          renderSingleHorizontalStaffline: true,
+          pageFormat: 'Endless',
+          autoResize: false, // Disable auto resize to maintain our dimensions
+          width: parentWidth - 20, // Leave a small margin
+        })
+        osmd.setLogLevel('warn')
+        osmdRef.current = osmd
+      } else {
+        // Standard vertical rendering
+        const osmd = new OpenSheetMusicDisplay(container, {
+          ...defaultOptions,
+          renderSingleHorizontalStaffline: false,
+          pageFormat: 'Endless',
+          autoResize: true,
+        })
+        osmd.setLogLevel('warn')
+        osmdRef.current = osmd
+      }
+
       setIsInitialized(true)
     } catch (err) {
       console.error('Error initializing OSMD:', err)
@@ -195,7 +258,7 @@ const NotationDisplay = ({
       }
       setIsInitialized(false)
     }
-  }, []) // This effect should only run once on mount
+  }, [horizontalMode]) // Add horizontalMode as a dependency
 
   // Load score when initialized and URL is available
   useEffect(() => {
@@ -397,6 +460,18 @@ const NotationDisplay = ({
     }
   }
 
+  // Add toggle handler for horizontal mode
+  const toggleHorizontalMode = () => {
+    const newValue = !horizontalMode
+    setHorizontalMode(newValue)
+
+    // If OSMD is already initialized, update its options and reload the score
+    if (osmdRef.current && isInitialized && scoreUrl) {
+      // We'll reload the score to apply the new horizontal mode setting
+      loadScore(scoreUrl)
+    }
+  }
+
   // Expose cursor control functions globally
   useEffect(() => {
     // Make cursor navigation functions accessible to other components
@@ -513,6 +588,17 @@ const NotationDisplay = ({
                 onChange={toggleAutoPlay}
               />
               <label htmlFor="auto-play">Auto-play notes</label>
+            </SettingsToggle>
+
+            {/* Horizontal mode toggle */}
+            <SettingsToggle>
+              <input
+                type="checkbox"
+                id="horizontal-mode"
+                checked={horizontalMode}
+                onChange={toggleHorizontalMode}
+              />
+              <label htmlFor="horizontal-mode">Horizontal mode</label>
             </SettingsToggle>
           </SettingsContainer>
         </CursorControls>

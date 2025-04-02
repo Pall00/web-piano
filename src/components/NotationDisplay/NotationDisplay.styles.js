@@ -25,12 +25,15 @@ export const NotationDisplayContainer = styled.div`
   }
 `
 
-// New wrapper for horizontal scrolling
+// Enhanced horizontal scrolling container with fixed width
 export const HorizontalScrollContainer = styled.div`
   width: 100%;
+  max-width: 100vw; /* Ensure it never exceeds viewport width */
   overflow-x: auto;
   overflow-y: hidden;
   padding: ${({ theme }) => theme.spacing(2)};
+  position: relative;
+  display: block;
 
   /* Add custom scrollbar styling */
   &::-webkit-scrollbar {
@@ -53,23 +56,26 @@ export const HorizontalScrollContainer = styled.div`
 `
 
 export const NotationCanvas = styled.div`
-  min-width: fit-content;
+  /* Fixed height but allow natural width for horizontal scrolling */
   min-height: 300px;
   margin-top: ${({ theme }) => theme.spacing(2)};
   margin-bottom: ${({ theme }) => theme.spacing(2)};
   background-color: ${({ theme }) => theme.colors.background.card};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.small};
+  box-sizing: border-box;
+  overflow: visible;
 
-  /* Ensure OSMD content is properly displayed */
+  /* Ensure OSMD content is properly contained */
   & > div {
-    min-width: fit-content;
+    width: auto;
+    overflow: visible;
   }
 
   /* Specific styles for OSMD SVG content */
   & svg {
     display: block;
-    max-width: none; /* Prevent SVG from being constrained by container width */
+    height: auto !important;
   }
 `
 
@@ -202,6 +208,7 @@ export const SettingsContainer = styled.div`
     margin-top: ${({ theme }) => theme.spacing(2)};
     width: 100%;
     justify-content: center;
+    flex-wrap: wrap;
   }
 `
 

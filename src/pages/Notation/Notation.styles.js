@@ -28,20 +28,20 @@ export const NotationSection = styled.div`
   gap: ${({ theme }) => theme.spacing(6)};
 `
 
-// New wrapper component to control the width of the notation display
+// Updated wrapper component to ensure proper containment and scrolling
 export const NotationWrapper = styled.div`
   width: 100%;
-  max-width: 100%;
-  overflow-x: auto; /* Add horizontal scrolling if needed */
+  max-width: 100%; // Ensure it doesn't exceed screen width
+  overflow-x: auto; // Enable horizontal scrolling
   background-color: ${({ theme }) => theme.colors.background.paper};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   box-shadow: ${({ theme }) => theme.shadows.small};
 
-  /* Ensure the notation display takes full width on desktop */
+  /* Responsive adjustments */
   @media (min-width: ${({ theme }) => theme.breakpoints.tablet}) {
-    min-width: 90vw;
-    margin-left: calc(-45vw + 50%);
-    margin-right: calc(-45vw + 50%);
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   /* Adjust for mobile */
