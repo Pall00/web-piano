@@ -39,27 +39,32 @@ const Notation = () => {
 
     // If there are notes to play and auto-play is enabled
     if (notes.length > 0 && shouldAutoPlay) {
-      // If it's a chord (multiple notes)
-      if (notes.length > 1) {
-        // Play as a chord if we have the function available
-        if (window.playPianoChord) {
-          // Play chord with demo source tag
-          window.playPianoChord(
-            notes.map(note => note.name),
-            { source: 'demo' },
-          )
+      // Filter out tied notes for playing - don't play tied notes
+      const notesToPlay = notes.filter(note => !note.isTied)
+
+      if (notesToPlay.length > 0) {
+        // If it's a chord (multiple notes)
+        if (notesToPlay.length > 1) {
+          // Play as a chord if we have the function available
+          if (window.playPianoChord) {
+            // Play chord with demo source tag
+            window.playPianoChord(
+              notesToPlay.map(note => note.name),
+              { source: 'demo' },
+            )
+          } else if (window.playPianoNote) {
+            // Otherwise play notes individually with a tiny delay
+            notesToPlay.forEach((note, index) => {
+              setTimeout(() => {
+                // Play each note with demo source tag
+                window.playPianoNote(note.name, { source: 'demo' })
+              }, index * 20) // 20ms delay between notes
+            })
+          }
         } else if (window.playPianoNote) {
-          // Otherwise play notes individually with a tiny delay
-          notes.forEach((note, index) => {
-            setTimeout(() => {
-              // Play each note with demo source tag
-              window.playPianoNote(note.name, { source: 'demo' })
-            }, index * 20) // 20ms delay between notes
-          })
+          // Single note - play with demo source tag
+          window.playPianoNote(notesToPlay[0].name, { source: 'demo' })
         }
-      } else if (window.playPianoNote) {
-        // Single note - play with demo source tag
-        window.playPianoNote(notes[0].name, { source: 'demo' })
       }
     }
   }
@@ -161,11 +166,15 @@ const Notation = () => {
                         ? 'green'
                         : activeNotes.includes(note.name)
                           ? 'blue'
-                          : 'inherit',
+                          : note.isTied
+                            ? 'gray' // Gray out tied notes
+                            : 'inherit',
+                      textDecoration: note.isTied ? 'line-through' : 'none', // Strike through tied notes
                     }}
                   >
                     {note.name} {note.midiNote ? `(MIDI: ${note.midiNote})` : ''}
                     {note.duration ? ` - Duration: ${note.duration}` : ''}
+                    {note.isTied ? ' [tied]' : ''} {/* Mark tied notes */}
                   </li>
                 ))}
               </ul>

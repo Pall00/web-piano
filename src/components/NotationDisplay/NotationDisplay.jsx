@@ -64,6 +64,233 @@ const midiNoteToNoteName = midiNote => {
   return noteName
 }
 
+// Function to check if a note is tied (second note of a tie)
+const isTiedNote = note => {
+  try {
+    // First, check if this note is part of a tie relationship
+    if (note.tie && note.tie.notes) {
+      // Get all the notes in this tie relationship
+      const tieNotes = note.tie.notes
+
+      // If there are multiple notes in the tie
+      if (tieNotes.length > 1) {
+        console.warn(`Note is part of a tie with ${tieNotes.length} notes`)
+
+        // Find this note's position in the tie relationship
+        const noteIndex = tieNotes.indexOf(note)
+
+        // If this note is not the first note in the tie, it's a continuation
+        // note and should not be played
+        if (noteIndex > 0) {
+          console.warn(`Note is position ${noteIndex} in tie - should not be played`)
+          return true
+        }
+
+        // Even if it's the first note in tie.notes, check if it has a continuing
+        // tie from previous measure or voice by examining the tie's Type property
+        if (note.tie.Type === 'stop' || note.tie.Type === 'continue') {
+          console.warn(`Note has tie Type=${note.tie.Type}`)
+          return true
+        }
+      }
+    }
+
+    // Look for note.Notations?.TiedList with a 'stop' type
+    if (note.Notations && note.Notations.TiedList) {
+      for (const tied of note.Notations.TiedList) {
+        if (tied.Type === 'stop') {
+          console.warn('Found tied stop in TiedList')
+          return true
+        }
+      }
+    }
+
+    // Check for tie start vs continue/stop
+    if (note.tie && note.tie.Type) {
+      if (note.tie.Type !== 'start' && note.tie.Type !== '') {
+        console.warn(`Note has non-start tie Type: ${note.tie.Type}`)
+        return true
+      }
+    }
+
+    return false
+  } catch (err) {
+    console.warn('Error checking if note is tied:', err)
+    return false
+  }
+}
+
+/**
+ * Converts a frequency in Hz to a note name
+ * @param {number} frequency - The frequency in Hz
+ * @returns {string} Note name in the format of letter, accidental, and octave (e.g., "C4", "F#5")
+ */
+const frequencyToNoteName = frequency => {
+  try {
+    if (!frequency || frequency <= 0) {
+      console.warn('Invalid frequency:', frequency)
+      return null
+    }
+
+    // A4 = 440 Hz
+    const A4 = 440.0
+
+    // Calculate how many semitones away from A4
+    // Formula: 12 * log2(f / 440)
+    const semitoneOffset = 12 * Math.log2(frequency / A4)
+
+    // Round to the nearest semitone
+    const semitones = Math.round(semitoneOffset)
+
+    // Calculate MIDI note number (A4 is MIDI note 69)
+    const midiNote = 69 + semitones
+
+    // Convert MIDI note number to note name
+    return midiNoteToNoteName(midiNote)
+  } catch (err) {
+    console.error('Error converting frequency to note name:', err)
+    return null
+  }
+}
+
+// Function to safely extract note information with proper error handling
+const extractNotesInfo = notesUnderCursor => {
+  try {
+    if (notesUnderCursor.length > 0) {
+      console.warn('Processing notes under cursor:', notesUnderCursor.length)
+
+      // Add more detailed debugging for the first note
+      if (notesUnderCursor[0]) {
+        console.warn('Note properties:', Object.keys(notesUnderCursor[0]))
+
+        // Look for any property containing "tie" in its name
+        const tieProperties = Object.keys(notesUnderCursor[0]).filter(key =>
+          key.toLowerCase().includes('tie'),
+        )
+        if (tieProperties.length > 0) {
+          console.warn('Properties related to ties:', tieProperties)
+        }
+      }
+    }
+
+    // After checking properties related to ties, add this section for detailed analysis
+    if (notesUnderCursor[0] && notesUnderCursor[0].tie) {
+      console.warn('Detailed tie information:')
+      try {
+        // Check the tie notes array to identify which notes come first/second
+        const tieNotes = notesUnderCursor[0].tie.notes
+        if (tieNotes && tieNotes.length > 0) {
+          console.warn(`  Tie contains ${tieNotes.length} notes`)
+
+          // Compare notes by reference to see if the current note is in the tie
+          const currentNoteIndex = tieNotes.indexOf(notesUnderCursor[0])
+          console.warn(`  Current note index in tie: ${currentNoteIndex}`)
+        }
+
+        // Log some more specific information about the tie
+        if (typeof notesUnderCursor[0].tie.Type === 'string') {
+          console.warn(`  Tie Type: ${notesUnderCursor[0].tie.Type}`)
+        }
+      } catch (tieErr) {
+        console.warn('Error analyzing tie object:', tieErr)
+      }
+    }
+
+    const notes = notesUnderCursor
+      .map(note => {
+        if (!note) return null
+
+        try {
+          // Check for TransposedPitch first (if sheet is transposed)
+          // Then fall back to regular Pitch
+          const pitchObj = note.TransposedPitch || note.Pitch
+
+          if (!pitchObj) {
+            console.warn('Note missing pitch information')
+            return null
+          }
+
+          let noteName = null
+
+          // Try frequency first - most reliable method
+          if (pitchObj.frequency && pitchObj.frequency > 0) {
+            noteName = frequencyToNoteName(pitchObj.frequency)
+            console.warn(`Using frequency (${pitchObj.frequency} Hz) → ${noteName}`)
+          }
+
+          // If frequency conversion failed, try MIDI
+          if (!noteName && pitchObj.halfTone !== undefined) {
+            const midiNoteNumber = pitchObj.halfTone
+            noteName = midiNoteToNoteName(midiNoteNumber)
+            console.warn(`Using MIDI conversion (${midiNoteNumber}) → ${noteName}`)
+          }
+
+          // Use safe access for duration
+          const duration = note.Length?.realValue || 0
+
+          if (!noteName) {
+            console.warn('Could not determine note name')
+            return null
+          }
+
+          // Check if this is a tied note using our helper
+          let isTied = isTiedNote(note)
+
+          // ADDITIONAL CHECK: Examine the note's neighboring notes for tie relationships
+          if (!isTied && note.tie && note.tie.notes && note.tie.notes.length > 1) {
+            // Get this note's position in the tie.notes array
+            const indexInTie = note.tie.notes.indexOf(note)
+
+            // If this is not the first note in the tie, it's definitely tied
+            if (indexInTie > 0) {
+              console.warn(`Note ${noteName} is tied (position ${indexInTie} in tie.notes array)`)
+              isTied = true
+            }
+            // If this is the first note, check if it's continuing a tie from a previous measure
+            else if (indexInTie === 0 && note.tie.Type && note.tie.Type !== 'start') {
+              console.warn(
+                `First note in a tie but has Type=${note.tie.Type}, may be continuing from previous measure`,
+              )
+              isTied = true
+            }
+          }
+
+          // If note has TieList with a 'stop' type, it's definitely tied
+          if (!isTied && note.TieList && note.TieList.length > 0) {
+            for (const tie of note.TieList) {
+              if (tie.Type === 'stop' || tie.Type === 'continue') {
+                console.warn(`Note ${noteName} has TieList with Type=${tie.Type}`)
+                isTied = true
+                break
+              }
+            }
+          }
+
+          if (isTied) {
+            console.warn(`Note ${noteName} is a tied note - will be handled differently`)
+          }
+
+          return {
+            name: noteName,
+            duration: duration,
+            midiNote: pitchObj.halfTone,
+            isTied: isTied,
+          }
+        } catch (err) {
+          console.warn('Error extracting note details:', err)
+          return null
+        }
+      })
+      .filter(Boolean) // Remove any nulls from the array
+
+    console.warn('Extracted notes info:', notes)
+    return notes
+  } catch (err) {
+    console.error('Error processing notes:', err)
+    return []
+  }
+}
+
 const defaultOptions = {
   autoResize: true,
   drawTitle: true,
@@ -287,120 +514,40 @@ const NotationDisplay = ({
     if (onZoomOut) onZoomOut(newZoom)
   }
 
-  /**
-   * Converts a frequency in Hz to a note name
-   * @param {number} frequency - The frequency in Hz
-   * @returns {string} Note name in the format of letter, accidental, and octave (e.g., "C4", "F#5")
-   */
-  const frequencyToNoteName = frequency => {
-    try {
-      if (!frequency || frequency <= 0) {
-        console.warn('Invalid frequency:', frequency)
-        return null
-      }
-
-      // A4 = 440 Hz
-      const A4 = 440.0
-
-      // Calculate how many semitones away from A4
-      // Formula: 12 * log2(f / 440)
-      const semitoneOffset = 12 * Math.log2(frequency / A4)
-
-      // Round to the nearest semitone
-      const semitones = Math.round(semitoneOffset)
-
-      // Calculate MIDI note number (A4 is MIDI note 69)
-      const midiNote = 69 + semitones
-
-      // Convert MIDI note number to note name
-      return midiNoteToNoteName(midiNote)
-    } catch (err) {
-      console.error('Error converting frequency to note name:', err)
-      return null
-    }
-  }
-
-  // Function to safely extract note information with proper error handling
-  const extractNotesInfo = notesUnderCursor => {
-    try {
-      if (notesUnderCursor.length > 0) {
-        console.warn('Processing notes under cursor:', notesUnderCursor.length)
-      }
-
-      const notes = notesUnderCursor
-        .map(note => {
-          if (!note) return null
-
-          try {
-            // Check for TransposedPitch first (if sheet is transposed)
-            // Then fall back to regular Pitch
-            const pitchObj = note.TransposedPitch || note.Pitch
-
-            if (!pitchObj) {
-              console.warn('Note missing pitch information')
-              return null
-            }
-
-            let noteName = null
-
-            // Try frequency first - most reliable method
-            if (pitchObj.frequency && pitchObj.frequency > 0) {
-              noteName = frequencyToNoteName(pitchObj.frequency)
-              console.warn(`Using frequency (${pitchObj.frequency} Hz) → ${noteName}`)
-            }
-
-            // If frequency conversion failed, try MIDI
-            if (!noteName && pitchObj.halfTone !== undefined) {
-              const midiNoteNumber = pitchObj.halfTone
-              noteName = midiNoteToNoteName(midiNoteNumber)
-              console.warn(`Using MIDI conversion (${midiNoteNumber}) → ${noteName}`)
-            }
-
-            // Use safe access for duration
-            const duration = note.Length?.realValue || 0
-
-            if (!noteName) {
-              console.warn('Could not determine note name')
-              return null
-            }
-
-            return {
-              name: noteName,
-              duration: duration,
-              midiNote: pitchObj.halfTone,
-            }
-          } catch (err) {
-            console.warn('Error extracting note details:', err)
-            return null
-          }
-        })
-        .filter(Boolean) // Remove any nulls from the array
-
-      console.warn('Extracted notes info:', notes)
-      return notes
-    } catch (err) {
-      console.error('Error processing notes:', err)
-      return []
-    }
-  }
-
   const handleNextNote = useCallback(() => {
     if (!osmdRef.current?.cursor || !isLoaded) return
 
     try {
+      // Move to the next position
       osmdRef.current.cursor.next()
       const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
 
-      if (notesUnderCursor?.length > 0 && onNoteSelected) {
+      if (notesUnderCursor?.length > 0) {
         const notes = extractNotesInfo(notesUnderCursor)
+
         if (notes.length > 0) {
-          onNoteSelected(notes, { autoPlay: autoPlayEnabled })
+          // Check if ALL notes at this position are tied
+          const allTied = notes.every(note => note.isTied)
+
+          if (allTied) {
+            console.warn('ALL notes at this position are tied - auto-advancing')
+
+            // If all notes are tied, auto-advance to the next position
+            setTimeout(() => {
+              handleNextNote()
+            }, 10)
+          } else {
+            // At least one note needs to be played, proceed normally
+            if (onNoteSelected) {
+              onNoteSelected(notes, { autoPlay: autoPlayEnabled })
+            }
+          }
         }
       }
     } catch (err) {
       console.error('Error navigating to next note:', err)
     }
-  }, [onNoteSelected, autoPlayEnabled])
+  }, [onNoteSelected, autoPlayEnabled, isLoaded])
 
   const handlePrevNote = useCallback(() => {
     if (!osmdRef.current?.cursor || !isLoaded) return
@@ -418,7 +565,7 @@ const NotationDisplay = ({
     } catch (err) {
       console.error('Error navigating to previous note:', err)
     }
-  }, [onNoteSelected, autoPlayEnabled])
+  }, [onNoteSelected, autoPlayEnabled, isLoaded])
 
   const handleResetCursor = useCallback(() => {
     if (osmdRef.current?.cursor && isLoaded) {
@@ -437,7 +584,7 @@ const NotationDisplay = ({
         console.error('Error resetting cursor:', err)
       }
     }
-  }, [onNoteSelected, autoPlayEnabled])
+  }, [onNoteSelected, autoPlayEnabled, isLoaded])
 
   // Toggle handlers for settings
   const toggleAutoAdvance = () => {

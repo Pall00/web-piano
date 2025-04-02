@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 
 /**
  * Hook to handle matching played piano notes with notation notes
- * Modified to work with quick note presses
+ * Modified to work with quick note presses and handle tied notes
  */
 const useNoteMatching = () => {
   // Current notes under the cursor in notation
@@ -89,14 +89,36 @@ const useNoteMatching = () => {
       return
     }
 
-    // Get note names from cursor notes
-    const cursorNoteNames = currentNotesUnderCursor.map(note => note.name)
+    // Get non-tied notes that need to be played
+    const requiredNotes = currentNotesUnderCursor.filter(note => !note.isTied)
+
+    // Log information about tied notes for debugging
+    if (currentNotesUnderCursor.some(note => note.isTied)) {
+      console.warn(
+        'Found tied notes:',
+        currentNotesUnderCursor.filter(note => note.isTied).map(note => note.name),
+      )
+      console.warn(
+        'Notes requiring play:',
+        requiredNotes.map(note => note.name),
+      )
+    }
+
+    // If all notes are tied, consider it matched automatically
+    if (requiredNotes.length === 0 && currentNotesUnderCursor.some(note => note.isTied)) {
+      console.warn('All notes are tied - auto-advancing cursor')
+      setIsMatched(true)
+      return
+    }
+
+    // Get note names from non-tied notes
+    const requiredNoteNames = requiredNotes.map(note => note.name)
 
     // Check if all required notes have been played
-    const allNotesPlayed = cursorNoteNames.every(note => matchedNotes.has(note))
+    const allNotesPlayed = requiredNoteNames.every(note => matchedNotes.has(note))
 
     // Update match state if all required notes are played
-    setIsMatched(allNotesPlayed && cursorNoteNames.length > 0)
+    setIsMatched(allNotesPlayed && requiredNoteNames.length > 0)
   }, [matchedNotes, currentNotesUnderCursor])
 
   return {
