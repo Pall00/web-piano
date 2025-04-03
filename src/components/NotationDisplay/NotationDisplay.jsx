@@ -323,6 +323,7 @@ const NotationDisplay = ({
   const [error, setError] = useState(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [selectedScore, setSelectedScore] = useState(SAMPLE_SCORES[0].id)
+  const [scoreLoaded, setScoreLoaded] = useState(false)
 
   // Add settings state
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true)
@@ -341,6 +342,7 @@ const NotationDisplay = ({
       if (!osmdRef.current || !url) return
 
       setIsLoaded(false)
+      setScoreLoaded(false)
       setError(null)
 
       try {
@@ -376,9 +378,7 @@ const NotationDisplay = ({
         }
 
         await osmdRef.current.load(url)
-
-        // IMPORTANT: Only set zoom and render after successful load
-        osmdRef.current.zoom = zoom
+        setScoreLoaded(true)
 
         // Force container styling
         if (osmdContainerRef.current) {
@@ -396,17 +396,34 @@ const NotationDisplay = ({
 
         // Check if we can render before trying
         if (osmdRef.current.IsReadyToRender()) {
-          osmdRef.current.render()
+          // Only set zoom and render after we're absolutely sure it's ready
+          setTimeout(() => {
+            if (osmdRef.current) {
+              osmdRef.current.Zoom = zoom
+              osmdRef.current.render()
+            }
+          }, 50) // Small delay to ensure readiness
 
           // Initialize cursor only after successful render
-          if (!osmdRef.current.cursor) {
-            osmdRef.current.enableOrDisableCursors(true)
-          }
+          // Add a small delay before initializing the cursor
+          setTimeout(() => {
+            if (osmdRef.current) {
+              try {
+                // Only enable cursor if it's not already enabled
+                if (!osmdRef.current.cursor) {
+                  osmdRef.current.enableOrDisableCursors(true)
+                }
 
-          // Show cursor
-          if (osmdRef.current.cursor) {
-            osmdRef.current.cursor.show()
-          }
+                // Only try to show cursor if it exists now
+                if (osmdRef.current.cursor) {
+                  osmdRef.current.cursor.show()
+                }
+              } catch (err) {
+                console.warn('Error setting up cursor:', err)
+                // Non-fatal error, continue without cursor
+              }
+            }
+          }, 100) // Longer delay for cursor initialization
 
           setIsLoaded(true)
         } else {
@@ -441,7 +458,7 @@ const NotationDisplay = ({
       if (horizontalMode) {
         // Use the parent container's width for rendering
         // This ensures we don't expand beyond the screen width
-        const parentWidth = container.parentElement.clientWidth
+        const parentWidth = container.parentElement ? container.parentElement.clientWidth : 800
 
         // Create new OSMD instance with fixed width
         const osmd = new OpenSheetMusicDisplay(container, {
@@ -494,30 +511,53 @@ const NotationDisplay = ({
     }
   }, [scoreUrl, loadScore, isInitialized])
 
-  // Apply zoom when it changes
+  // Apply zoom when it changes AND a score is loaded
   useEffect(() => {
-    if (osmdRef.current && isLoaded) {
-      osmdRef.current.Zoom = zoom
-      osmdRef.current.render()
+    if (osmdRef.current && isLoaded && scoreLoaded) {
+      try {
+        // Make sure the score is ready for rendering
+        if (osmdRef.current.IsReadyToRender()) {
+          osmdRef.current.Zoom = zoom
+          osmdRef.current.render()
+        } else {
+          // If not ready, log a message but don't try to render
+          console.warn('Score not ready for zoom adjustment yet')
+        }
+      } catch (err) {
+        console.error('Error applying zoom:', err)
+      }
     }
-  }, [zoom, isLoaded])
+  }, [zoom, isLoaded, scoreLoaded])
 
   const handleZoomIn = () => {
-    const newZoom = Math.min(zoom * 1.2, 3.0)
-    setZoom(newZoom)
-    if (onZoomIn) onZoomIn(newZoom)
+    // Only apply zoom if the score is fully loaded
+    if (osmdRef.current && isLoaded && scoreLoaded) {
+      const newZoom = Math.min(zoom * 1.2, 3.0)
+      setZoom(newZoom)
+      if (onZoomIn) onZoomIn(newZoom)
+    }
   }
 
   const handleZoomOut = () => {
-    const newZoom = Math.max(zoom / 1.2, 0.5)
-    setZoom(newZoom)
-    if (onZoomOut) onZoomOut(newZoom)
+    // Only apply zoom if the score is fully loaded
+    if (osmdRef.current && isLoaded && scoreLoaded) {
+      const newZoom = Math.max(zoom / 1.2, 0.5)
+      setZoom(newZoom)
+      if (onZoomOut) onZoomOut(newZoom)
+    }
   }
 
   const handleNextNote = useCallback(() => {
-    if (!osmdRef.current?.cursor || !isLoaded) return
+    if (!osmdRef.current) return
+    if (!isLoaded) return
 
     try {
+      // Make sure the cursor exists
+      if (!osmdRef.current.cursor) {
+        console.warn('Cursor not available yet')
+        return
+      }
+
       // Move to the next position
       osmdRef.current.cursor.next()
       const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
@@ -550,9 +590,16 @@ const NotationDisplay = ({
   }, [onNoteSelected, autoPlayEnabled, isLoaded])
 
   const handlePrevNote = useCallback(() => {
-    if (!osmdRef.current?.cursor || !isLoaded) return
+    if (!osmdRef.current) return
+    if (!isLoaded) return
 
     try {
+      // Make sure the cursor exists
+      if (!osmdRef.current.cursor) {
+        console.warn('Cursor not available yet')
+        return
+      }
+
       osmdRef.current.cursor.previous()
       const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
 
@@ -568,21 +615,28 @@ const NotationDisplay = ({
   }, [onNoteSelected, autoPlayEnabled, isLoaded])
 
   const handleResetCursor = useCallback(() => {
-    if (osmdRef.current?.cursor && isLoaded) {
-      try {
-        osmdRef.current.cursor.reset()
-        // Get notes under cursor after reset
-        const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
+    if (!osmdRef.current) return
+    if (!isLoaded) return
 
-        if (notesUnderCursor?.length > 0 && onNoteSelected) {
-          const notes = extractNotesInfo(notesUnderCursor)
-          if (notes.length > 0) {
-            onNoteSelected(notes, { autoPlay: autoPlayEnabled })
-          }
-        }
-      } catch (err) {
-        console.error('Error resetting cursor:', err)
+    try {
+      // Make sure the cursor exists
+      if (!osmdRef.current.cursor) {
+        console.warn('Cursor not available yet')
+        return
       }
+
+      osmdRef.current.cursor.reset()
+      // Get notes under cursor after reset
+      const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
+
+      if (notesUnderCursor?.length > 0 && onNoteSelected) {
+        const notes = extractNotesInfo(notesUnderCursor)
+        if (notes.length > 0) {
+          onNoteSelected(notes, { autoPlay: autoPlayEnabled })
+        }
+      }
+    } catch (err) {
+      console.error('Error resetting cursor:', err)
     }
   }, [onNoteSelected, autoPlayEnabled, isLoaded])
 
