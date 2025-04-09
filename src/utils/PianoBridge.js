@@ -1,4 +1,5 @@
 // src/utils/PianoBridge.js
+import logger from './logger'
 
 /**
  * A utility to bridge between the FooterPiano component and other parts of the application
@@ -26,7 +27,7 @@ const normalizeNoteName = noteName => {
     // Extract the note letter and octave
     const match = note.match(/^([A-Ga-g][#♯b♭s]*)([0-9]+)$/)
     if (!match) {
-      console.warn('Invalid note format:', noteName)
+      logger.warn('Invalid note format:', noteName)
       return noteName
     }
 
@@ -84,10 +85,10 @@ const normalizeNoteName = noteName => {
 
     // Combine note and octave
     const normalizedNote = notePart + octavePart
-    console.warn(`Normalized note: ${noteName} -> ${normalizedNote}`)
+    logger.warn(`Normalized note: ${noteName} -> ${normalizedNote}`)
     return normalizedNote
   } catch (error) {
-    console.error('Error normalizing note name:', error)
+    logger.error('Error normalizing note name:', error)
     return noteName // Return original if processing fails
   }
 }
@@ -147,7 +148,7 @@ export const setPianoInstance = instance => {
  */
 export const playNote = (noteName, options = {}) => {
   if (!pianoInstance) {
-    console.warn('Piano instance not set. Call setPianoInstance first.')
+    logger.warn('Piano instance not set. Call setPianoInstance first.')
     return
   }
 
@@ -155,7 +156,7 @@ export const playNote = (noteName, options = {}) => {
     // Normalize the note name to the format expected by the piano
     const normalizedNote = normalizeNoteName(noteName)
 
-    console.warn(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
+    logger.warn(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
 
     // Notify listeners with the provided source
     if (window.pianoEvents) {
@@ -178,7 +179,7 @@ export const playNote = (noteName, options = {}) => {
     // Play the note using the piano instance
     pianoInstance.playNote(normalizedNote)
   } catch (err) {
-    console.error('Error playing note:', err)
+    logger.error('Error playing note:', err)
   }
 }
 
@@ -204,7 +205,7 @@ export const playChord = (noteNames, options = {}) => {
  */
 export const highlightNote = noteName => {
   if (!pianoInstance) {
-    console.warn('Piano instance not set. Call setPianoInstance first.')
+    logger.warn('Piano instance not set. Call setPianoInstance first.')
     return
   }
 
@@ -217,7 +218,7 @@ export const highlightNote = noteName => {
       pianoInstance.highlightNote(normalizedNote)
     }
   } catch (err) {
-    console.error('Error highlighting note:', err)
+    logger.error('Error highlighting note:', err)
   }
 }
 

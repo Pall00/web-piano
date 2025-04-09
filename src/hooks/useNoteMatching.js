@@ -1,5 +1,6 @@
 // src/hooks/useNoteMatching.js
 import { useState, useEffect, useRef } from 'react'
+import logger from '../utils/logger'
 
 /**
  * Hook to handle matching played piano notes with notation notes
@@ -26,7 +27,7 @@ const useNoteMatching = () => {
   useEffect(() => {
     // Skip if piano events not available
     if (!window.pianoEvents) {
-      console.warn('Piano events system not available')
+      logger.warn('Piano events system not available')
       return () => {}
     }
 
@@ -94,11 +95,11 @@ const useNoteMatching = () => {
 
     // Log information about tied notes for debugging
     if (currentNotesUnderCursor.some(note => note.isTied)) {
-      console.warn(
+      logger.warn(
         'Found tied notes:',
         currentNotesUnderCursor.filter(note => note.isTied).map(note => note.name),
       )
-      console.warn(
+      logger.warn(
         'Notes requiring play:',
         requiredNotes.map(note => note.name),
       )
@@ -106,7 +107,7 @@ const useNoteMatching = () => {
 
     // If all notes are tied, consider it matched automatically
     if (requiredNotes.length === 0 && currentNotesUnderCursor.some(note => note.isTied)) {
-      console.warn('All notes are tied - auto-advancing cursor')
+      logger.warn('All notes are tied - auto-advancing cursor')
       setIsMatched(true)
       return
     }
