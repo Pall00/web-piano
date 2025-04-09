@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { SAMPLE_SCORES } from '../../data/scoreData'
+import logger from '../../utils/logger'
 import {
   NotationDisplayContainer,
   NotationCanvas,
@@ -31,7 +32,7 @@ const DEFAULT_SCORE_URL =
  */
 const midiNoteToNoteName = midiNote => {
   if (midiNote === undefined || midiNote === null) {
-    console.warn('Invalid MIDI note number')
+    logger.warn('Invalid MIDI note number')
     return 'C4' // Default to middle C
   }
 
@@ -47,19 +48,19 @@ const midiNoteToNoteName = midiNote => {
     // If too low, transpose up to a playable range
     const octavesUp = Math.ceil(1 - octave)
     octave += octavesUp
-    console.warn(`Note too low, transposing up ${octavesUp} octaves`)
+    logger.info(`Note too low, transposing up ${octavesUp} octaves`)
   } else if (octave > 7) {
     // If too high, transpose down to a playable range
     const octavesDown = Math.ceil(octave - 7)
     octave -= octavesDown
-    console.warn(`Note too high, transposing down ${octavesDown} octaves`)
+    logger.info(`Note too high, transposing down ${octavesDown} octaves`)
   }
 
   // Calculate note name index (0-11)
   const noteIndex = midiNote % 12
 
   const noteName = noteNames[noteIndex] + octave
-  console.warn(`Converted MIDI note ${midiNote} to ${noteName}`)
+  logger.debug(`Converted MIDI note ${midiNote} to ${noteName}`)
 
   return noteName
 }
@@ -74,7 +75,7 @@ const isTiedNote = note => {
 
       // If there are multiple notes in the tie
       if (tieNotes.length > 1) {
-        console.warn(`Note is part of a tie with ${tieNotes.length} notes`)
+        logger.debug(`Note is part of a tie with ${tieNotes.length} notes`)
 
         // Find this note's position in the tie relationship
         const noteIndex = tieNotes.indexOf(note)
@@ -82,14 +83,14 @@ const isTiedNote = note => {
         // If this note is not the first note in the tie, it's a continuation
         // note and should not be played
         if (noteIndex > 0) {
-          console.warn(`Note is position ${noteIndex} in tie - should not be played`)
+          logger.info(`Note is position ${noteIndex} in tie - should not be played`)
           return true
         }
 
         // Even if it's the first note in tie.notes, check if it has a continuing
         // tie from previous measure or voice by examining the tie's Type property
         if (note.tie.Type === 'stop' || note.tie.Type === 'continue') {
-          console.warn(`Note has tie Type=${note.tie.Type}`)
+          logger.info(`Note has tie Type=${note.tie.Type}`)
           return true
         }
       }
@@ -99,7 +100,7 @@ const isTiedNote = note => {
     if (note.Notations && note.Notations.TiedList) {
       for (const tied of note.Notations.TiedList) {
         if (tied.Type === 'stop') {
-          console.warn('Found tied stop in TiedList')
+          logger.info('Found tied stop in TiedList')
           return true
         }
       }
@@ -108,14 +109,14 @@ const isTiedNote = note => {
     // Check for tie start vs continue/stop
     if (note.tie && note.tie.Type) {
       if (note.tie.Type !== 'start' && note.tie.Type !== '') {
-        console.warn(`Note has non-start tie Type: ${note.tie.Type}`)
+        logger.info(`Note has non-start tie Type: ${note.tie.Type}`)
         return true
       }
     }
 
     return false
   } catch (err) {
-    console.warn('Error checking if note is tied:', err)
+    logger.warn('Error checking if note is tied:', err)
     return false
   }
 }
@@ -128,7 +129,7 @@ const isTiedNote = note => {
 const frequencyToNoteName = frequency => {
   try {
     if (!frequency || frequency <= 0) {
-      console.warn('Invalid frequency:', frequency)
+      logger.warn(`Invalid frequency: ${frequency}`)
       return null
     }
 
@@ -148,7 +149,7 @@ const frequencyToNoteName = frequency => {
     // Convert MIDI note number to note name
     return midiNoteToNoteName(midiNote)
   } catch (err) {
-    console.error('Error converting frequency to note name:', err)
+    logger.error('Error converting frequency to note name:', err)
     return null
   }
 }
@@ -157,42 +158,42 @@ const frequencyToNoteName = frequency => {
 const extractNotesInfo = notesUnderCursor => {
   try {
     if (notesUnderCursor.length > 0) {
-      console.warn('Processing notes under cursor:', notesUnderCursor.length)
+      logger.debug(`Processing notes under cursor: ${notesUnderCursor.length}`)
 
       // Add more detailed debugging for the first note
       if (notesUnderCursor[0]) {
-        console.warn('Note properties:', Object.keys(notesUnderCursor[0]))
+        logger.debug('Note properties:', Object.keys(notesUnderCursor[0]))
 
         // Look for any property containing "tie" in its name
         const tieProperties = Object.keys(notesUnderCursor[0]).filter(key =>
           key.toLowerCase().includes('tie'),
         )
         if (tieProperties.length > 0) {
-          console.warn('Properties related to ties:', tieProperties)
+          logger.debug('Properties related to ties:', tieProperties)
         }
       }
     }
 
     // After checking properties related to ties, add this section for detailed analysis
     if (notesUnderCursor[0] && notesUnderCursor[0].tie) {
-      console.warn('Detailed tie information:')
+      logger.debug('Detailed tie information:')
       try {
         // Check the tie notes array to identify which notes come first/second
         const tieNotes = notesUnderCursor[0].tie.notes
         if (tieNotes && tieNotes.length > 0) {
-          console.warn(`  Tie contains ${tieNotes.length} notes`)
+          logger.debug(`  Tie contains ${tieNotes.length} notes`)
 
           // Compare notes by reference to see if the current note is in the tie
           const currentNoteIndex = tieNotes.indexOf(notesUnderCursor[0])
-          console.warn(`  Current note index in tie: ${currentNoteIndex}`)
+          logger.debug(`  Current note index in tie: ${currentNoteIndex}`)
         }
 
         // Log some more specific information about the tie
         if (typeof notesUnderCursor[0].tie.Type === 'string') {
-          console.warn(`  Tie Type: ${notesUnderCursor[0].tie.Type}`)
+          logger.debug(`  Tie Type: ${notesUnderCursor[0].tie.Type}`)
         }
       } catch (tieErr) {
-        console.warn('Error analyzing tie object:', tieErr)
+        logger.warn('Error analyzing tie object:', tieErr)
       }
     }
 
@@ -206,7 +207,7 @@ const extractNotesInfo = notesUnderCursor => {
           const pitchObj = note.TransposedPitch || note.Pitch
 
           if (!pitchObj) {
-            console.warn('Note missing pitch information')
+            logger.warn('Note missing pitch information')
             return null
           }
 
@@ -215,21 +216,21 @@ const extractNotesInfo = notesUnderCursor => {
           // Try frequency first - most reliable method
           if (pitchObj.frequency && pitchObj.frequency > 0) {
             noteName = frequencyToNoteName(pitchObj.frequency)
-            console.warn(`Using frequency (${pitchObj.frequency} Hz) → ${noteName}`)
+            logger.debug(`Using frequency (${pitchObj.frequency} Hz) → ${noteName}`)
           }
 
           // If frequency conversion failed, try MIDI
           if (!noteName && pitchObj.halfTone !== undefined) {
             const midiNoteNumber = pitchObj.halfTone
             noteName = midiNoteToNoteName(midiNoteNumber)
-            console.warn(`Using MIDI conversion (${midiNoteNumber}) → ${noteName}`)
+            logger.debug(`Using MIDI conversion (${midiNoteNumber}) → ${noteName}`)
           }
 
           // Use safe access for duration
           const duration = note.Length?.realValue || 0
 
           if (!noteName) {
-            console.warn('Could not determine note name')
+            logger.warn('Could not determine note name')
             return null
           }
 
@@ -243,12 +244,12 @@ const extractNotesInfo = notesUnderCursor => {
 
             // If this is not the first note in the tie, it's definitely tied
             if (indexInTie > 0) {
-              console.warn(`Note ${noteName} is tied (position ${indexInTie} in tie.notes array)`)
+              logger.info(`Note ${noteName} is tied (position ${indexInTie} in tie.notes array)`)
               isTied = true
             }
             // If this is the first note, check if it's continuing a tie from a previous measure
             else if (indexInTie === 0 && note.tie.Type && note.tie.Type !== 'start') {
-              console.warn(
+              logger.info(
                 `First note in a tie but has Type=${note.tie.Type}, may be continuing from previous measure`,
               )
               isTied = true
@@ -259,7 +260,7 @@ const extractNotesInfo = notesUnderCursor => {
           if (!isTied && note.TieList && note.TieList.length > 0) {
             for (const tie of note.TieList) {
               if (tie.Type === 'stop' || tie.Type === 'continue') {
-                console.warn(`Note ${noteName} has TieList with Type=${tie.Type}`)
+                logger.info(`Note ${noteName} has TieList with Type=${tie.Type}`)
                 isTied = true
                 break
               }
@@ -267,7 +268,7 @@ const extractNotesInfo = notesUnderCursor => {
           }
 
           if (isTied) {
-            console.warn(`Note ${noteName} is a tied note - will be handled differently`)
+            logger.info(`Note ${noteName} is a tied note - will be handled differently`)
           }
 
           return {
@@ -277,16 +278,17 @@ const extractNotesInfo = notesUnderCursor => {
             isTied: isTied,
           }
         } catch (err) {
-          console.warn('Error extracting note details:', err)
+          logger.warn('Error extracting note details:', err)
           return null
         }
       })
       .filter(Boolean) // Remove any nulls from the array
 
-    console.warn('Extracted notes info:', notes)
+    // Changed from warn to debug since this is just informational output
+    logger.debug('Extracted notes info:', notes)
     return notes
   } catch (err) {
-    console.error('Error processing notes:', err)
+    logger.error('Error processing notes:', err)
     return []
   }
 }
@@ -419,7 +421,7 @@ const NotationDisplay = ({
                   osmdRef.current.cursor.show()
                 }
               } catch (err) {
-                console.warn('Error setting up cursor:', err)
+                logger.warn('Error setting up cursor:', err)
                 // Non-fatal error, continue without cursor
               }
             }
@@ -430,7 +432,7 @@ const NotationDisplay = ({
           setError('Score loaded but not ready to render')
         }
       } catch (err) {
-        console.error('Error loading score:', err)
+        logger.error('Error loading score:', err)
         setError('Failed to load sheet music')
       }
     },
@@ -484,7 +486,7 @@ const NotationDisplay = ({
 
       setIsInitialized(true)
     } catch (err) {
-      console.error('Error initializing OSMD:', err)
+      logger.error('Error initializing OSMD:', err)
       setError('Failed to initialize sheet music display')
     }
 
@@ -521,10 +523,10 @@ const NotationDisplay = ({
           osmdRef.current.render()
         } else {
           // If not ready, log a message but don't try to render
-          console.warn('Score not ready for zoom adjustment yet')
+          logger.warn('Score not ready for zoom adjustment yet')
         }
       } catch (err) {
-        console.error('Error applying zoom:', err)
+        logger.error('Error applying zoom:', err)
       }
     }
   }, [zoom, isLoaded, scoreLoaded])
@@ -554,7 +556,7 @@ const NotationDisplay = ({
     try {
       // Make sure the cursor exists
       if (!osmdRef.current.cursor) {
-        console.warn('Cursor not available yet')
+        logger.warn('Cursor not available yet')
         return
       }
 
@@ -570,7 +572,7 @@ const NotationDisplay = ({
           const allTied = notes.every(note => note.isTied)
 
           if (allTied) {
-            console.warn('ALL notes at this position are tied - auto-advancing')
+            logger.info('ALL notes at this position are tied - auto-advancing')
 
             // If all notes are tied, auto-advance to the next position
             setTimeout(() => {
@@ -585,7 +587,7 @@ const NotationDisplay = ({
         }
       }
     } catch (err) {
-      console.error('Error navigating to next note:', err)
+      logger.error('Error navigating to next note:', err)
     }
   }, [onNoteSelected, autoPlayEnabled, isLoaded])
 
@@ -596,7 +598,7 @@ const NotationDisplay = ({
     try {
       // Make sure the cursor exists
       if (!osmdRef.current.cursor) {
-        console.warn('Cursor not available yet')
+        logger.warn('Cursor not available yet')
         return
       }
 
@@ -610,7 +612,7 @@ const NotationDisplay = ({
         }
       }
     } catch (err) {
-      console.error('Error navigating to previous note:', err)
+      logger.error('Error navigating to previous note:', err)
     }
   }, [onNoteSelected, autoPlayEnabled, isLoaded])
 
@@ -621,7 +623,7 @@ const NotationDisplay = ({
     try {
       // Make sure the cursor exists
       if (!osmdRef.current.cursor) {
-        console.warn('Cursor not available yet')
+        logger.warn('Cursor not available yet')
         return
       }
 
@@ -636,7 +638,7 @@ const NotationDisplay = ({
         }
       }
     } catch (err) {
-      console.error('Error resetting cursor:', err)
+      logger.error('Error resetting cursor:', err)
     }
   }, [onNoteSelected, autoPlayEnabled, isLoaded])
 

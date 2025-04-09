@@ -85,7 +85,8 @@ const normalizeNoteName = noteName => {
 
     // Combine note and octave
     const normalizedNote = notePart + octavePart
-    logger.warn(`Normalized note: ${noteName} -> ${normalizedNote}`)
+    // Changed from warn to info (normal processing information)
+    logger.info(`Normalized note: ${noteName} -> ${normalizedNote}`)
     return normalizedNote
   } catch (error) {
     logger.error('Error normalizing note name:', error)
@@ -156,7 +157,8 @@ export const playNote = (noteName, options = {}) => {
     // Normalize the note name to the format expected by the piano
     const normalizedNote = normalizeNoteName(noteName)
 
-    logger.warn(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
+    // Changed from warn to info (normal processing information)
+    logger.info(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
 
     // Notify listeners with the provided source
     if (window.pianoEvents) {
