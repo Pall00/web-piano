@@ -1,5 +1,6 @@
 // src/components/FooterPiano/hooks/useMidiKeyboard.js
 import { useState, useCallback, useRef } from 'react'
+import logger from '../../../utils/logger'
 
 /**
  * A hook for connecting to MIDI keyboards with sustain pedal support
@@ -62,7 +63,8 @@ const useMidiKeyboard = ({
         if (data === 64) {
           // Sustain pedal values: >= 64 is on, < 64 is off
           const isSustainOn = value >= 64
-          console.warn(`MIDI Sustain Pedal: ${isSustainOn ? 'ON' : 'OFF'} (value: ${value})`)
+          logger.debug(`MIDI Sustain Pedal: ${isSustainOn ? 'ON' : 'OFF'} (value: ${value})`)
+
           if (onSustainChange) onSustainChange(isSustainOn)
           return
         }
@@ -79,7 +81,7 @@ const useMidiKeyboard = ({
         // Check if we've already processed this note
         if (!activeNotesRef.current.has(data)) {
           activeNotesRef.current.add(data)
-          console.warn(`MIDI Note On: ${noteName} (velocity: ${value})`)
+          logger.debug(`MIDI Note On: ${noteName} (velocity: ${value})`)
           if (onNoteOn) onNoteOn(noteName)
         }
       }
@@ -90,7 +92,7 @@ const useMidiKeyboard = ({
       ) {
         if (activeNotesRef.current.has(data)) {
           activeNotesRef.current.delete(data)
-          console.warn(`MIDI Note Off: ${noteName}`)
+          logger.debug(`MIDI Note Off: ${noteName}`)
           if (onNoteOff) onNoteOff(noteName)
         }
       }
