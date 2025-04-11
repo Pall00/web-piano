@@ -56,7 +56,6 @@ export default [
       'react/jsx-closing-bracket-location': ['error', 'line-aligned'],
 
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
     },

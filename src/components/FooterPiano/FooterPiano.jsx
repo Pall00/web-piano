@@ -1,5 +1,4 @@
 // src/components/FooterPiano/FooterPiano.jsx
-
 import { useRef, useState, useEffect, useCallback } from 'react'
 import {
   PianoContainer,
@@ -20,6 +19,14 @@ import {
 import { generatePianoKeys, calculateBlackKeyPosition } from './utils/pianoUtils'
 import usePianoAudio from './hooks/usePianoAudio'
 import useMidiKeyboard from './hooks/useMidiKeyboard'
+import { setPianoInstance } from '../../utils/PianoBridge'
+import logger from '../../utils/logger'
+
+// Configure logger for piano interaction events
+logger.configure({
+  throttleMs: 200, // Higher throttling for piano UI events
+  sampleRate: 10, // Only log 1 out of every 10 events
+})
 
 const FooterPiano = () => {
   // Piano keys data
@@ -78,7 +85,16 @@ const FooterPiano = () => {
         return newSet
       })
       playNote(note)
-      console.warn(`Key down: ${note} (mouse)`)
+      logger.debug(() => `Key down: ${note} (mouse)`)
+
+      // Notify listeners about the note being pressed by the user
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({
+          note,
+          action: 'pressed',
+          source: 'user',
+        })
+      }
     },
     [playNote],
   )
@@ -94,7 +110,16 @@ const FooterPiano = () => {
 
       if (!isSustainActive) {
         stopNote(note)
-        console.warn(`Key up: ${note} (mouse)`)
+        logger.debug(() => `Key up: ${note} (mouse)`)
+      }
+
+      // Notify listeners about the note being released by the user
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({
+          note,
+          action: 'released',
+          source: 'user',
+        })
       }
     },
     [isSustainActive, stopNote],
@@ -109,7 +134,16 @@ const FooterPiano = () => {
           return newSet
         })
         playNote(note)
-        console.warn(`Mouse enter key: ${note}`)
+        logger.debug(() => `Mouse enter key: ${note}`)
+
+        // Notify listeners about the note being pressed by the user
+        if (window.pianoEvents) {
+          window.pianoEvents.notify({
+            note,
+            action: 'pressed',
+            source: 'user',
+          })
+        }
       }
     },
     [mouseIsDown, playNote],
@@ -124,7 +158,16 @@ const FooterPiano = () => {
           return newSet
         })
         stopNote(note)
-        console.warn(`Mouse leave key: ${note}`)
+        logger.debug(() => `Mouse leave key: ${note}`)
+
+        // Notify listeners about the note being released by the user
+        if (window.pianoEvents) {
+          window.pianoEvents.notify({
+            note,
+            action: 'released',
+            source: 'user',
+          })
+        }
       }
     },
     [mouseIsDown, isSustainActive, stopNote],
@@ -139,7 +182,16 @@ const FooterPiano = () => {
         return newSet
       })
       playNote(note)
-      console.warn(`Touch start: ${note}`)
+      logger.debug(() => `Touch start: ${note}`)
+
+      // Notify listeners about the note being pressed by the user
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({
+          note,
+          action: 'pressed',
+          source: 'user',
+        })
+      }
     },
     [playNote],
   )
@@ -153,7 +205,16 @@ const FooterPiano = () => {
       })
       if (!isSustainActive) {
         stopNote(note)
-        console.warn(`Touch end: ${note}`)
+        logger.debug(() => `Touch end: ${note}`)
+      }
+
+      // Notify listeners about the note being released by the user
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({
+          note,
+          action: 'released',
+          source: 'user',
+        })
       }
     },
     [isSustainActive, stopNote],
@@ -176,7 +237,16 @@ const FooterPiano = () => {
           // Stop all notes that were being touched
           notesToRelease.forEach(note => {
             stopNote(note)
-            console.warn(`Global mouse up: releasing ${note}`)
+            logger.debug(() => `Global mouse up: releasing ${note}`)
+
+            // Notify listeners about notes being released by the user
+            if (window.pianoEvents) {
+              window.pianoEvents.notify({
+                note,
+                action: 'released',
+                source: 'user',
+              })
+            }
           })
         } else {
           // Just clear the touched notes without stopping them (sustain is on)
@@ -200,7 +270,16 @@ const FooterPiano = () => {
         return newSet
       })
       playNote(note)
-      console.warn(`MIDI note on: ${note}`)
+      // Note: No need to log here - already logged in useMidiKeyboard
+
+      // Notify listeners about the note being pressed by the user (via MIDI)
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({
+          note,
+          action: 'pressed',
+          source: 'user',
+        })
+      }
     },
     onNoteOff: note => {
       setTouchedNotes(prev => {
@@ -210,12 +289,71 @@ const FooterPiano = () => {
       })
       if (!isSustainActive) {
         stopNote(note)
-        console.warn(`MIDI note off: ${note}`)
+        // Note: No need to log here - already logged in useMidiKeyboard
+      }
+
+      // Notify listeners about the note being released by the user (via MIDI)
+      if (window.pianoEvents) {
+        window.pianoEvents.notify({
+          note,
+          action: 'released',
+          source: 'user',
+        })
       }
     },
     onSustainChange: isActive => setSustain(isActive),
     isAudioReady: isAudioReady,
   })
+
+  // Register the piano with the PianoBridge utility for external control
+  useEffect(() => {
+    // Register this piano instance with the bridge
+    setPianoInstance({
+      // Flag to indicate if this piano uses 's' for sharps instead of '#'
+      useSharpS: true, // Set to true if your piano uses 's' instead of '#' for sharps
+
+      playNote: noteId => {
+        if (!noteId) return
+
+        try {
+          // Just use the note as-is
+          logger.debug(() => `Piano bridge playing note: ${noteId}`)
+          playNote(noteId)
+        } catch (err) {
+          logger.error(`Error playing note ${noteId}: ${err.message}`)
+        }
+      },
+
+      highlightNote: noteId => {
+        if (!noteId) return
+
+        try {
+          // Add note to touched notes to highlight it (without playing)
+          setTouchedNotes(prev => {
+            const newSet = new Set(prev)
+            newSet.add(noteId)
+            return newSet
+          })
+
+          // Remove highlight after a short delay
+          setTimeout(() => {
+            setTouchedNotes(prev => {
+              const newSet = new Set(prev)
+              newSet.delete(noteId)
+              return newSet
+            })
+          }, 500)
+        } catch (err) {
+          logger.error(`Error highlighting note ${noteId}: ${err.message}`)
+        }
+      },
+    })
+
+    // Clean up when component unmounts
+    return () => {
+      setPianoInstance(null)
+    }
+  }, [playNote]) // Add playNote as a dependency
 
   // Check if connected to a Port-1 device
   const isPort1Device =
@@ -242,7 +380,7 @@ const FooterPiano = () => {
   useEffect(() => {
     // Only initialize once when audio becomes ready
     if (isAudioReady && !midiInitializedRef.current) {
-      console.warn('Audio is fully loaded, initializing MIDI...')
+      logger.info('Audio is fully loaded, initializing MIDI...')
       midiInitializedRef.current = true
       initializeMidi()
     }
@@ -257,7 +395,7 @@ const FooterPiano = () => {
     const audioStarted = await startAudio()
     if (audioStarted) {
       // We'll initialize MIDI in the useEffect when audio is fully loaded
-      console.warn('Audio started, waiting for samples to load before MIDI initialization...')
+      logger.info('Audio started, waiting for samples to load before MIDI initialization...')
       // Not calling initializeMidi() here as we'll do it in the useEffect when isLoaded becomes true
     }
     return audioStarted
