@@ -1,6 +1,7 @@
 // src/components/FooterPiano/hooks/useMidiKeyboard.js
 import { useState, useCallback, useRef, useEffect } from 'react'
 import logger from '../../../utils/logger'
+import { midiToNote } from '../../../utils/musicTheory'
 
 /**
  * A hook for connecting to MIDI keyboards with sustain pedal support
@@ -36,28 +37,6 @@ const useMidiKeyboard = ({
     }
   }, [])
 
-  // Minimal MIDI note number to note name mapping
-  const midiNoteToNoteName = useCallback(midiNote => {
-    // Standard note names for piano range (A0-C8)
-    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-
-    // Calculate note name and octave based on MIDI note number
-    const octave = Math.floor(midiNote / 12) - 1
-    const noteName = noteNames[midiNote % 12]
-
-    // Handle special cases for the piano range
-    if (midiNote >= 21 && midiNote <= 108) {
-      // Convert A0 (21) to C8 (108) range properly
-      if (midiNote < 24) {
-        // Handle A0 (21), A#0 (22), B0 (23)
-        return `${noteName}0`
-      } else {
-        return `${noteName}${octave}`
-      }
-    }
-    return null
-  }, [])
-
   /**
    * Handles incoming MIDI messages
    */
@@ -87,8 +66,8 @@ const useMidiKeyboard = ({
         return
       }
 
-      // Note messages handling (existing code)
-      const noteName = midiNoteToNoteName(data)
+      // Note messages handling
+      const noteName = midiToNote(data)
       if (!noteName) return // Invalid note
 
       // Note on event (command: 144-159 with velocity > 0)
@@ -113,7 +92,7 @@ const useMidiKeyboard = ({
         }
       }
     },
-    [onNoteOn, onNoteOff, onSustainChange, midiNoteToNoteName, isAudioReady],
+    [onNoteOn, onNoteOff, onSustainChange, isAudioReady],
   )
 
   /**
@@ -228,7 +207,7 @@ const useMidiKeyboard = ({
               // Clear active notes when device disconnects
               if (onNoteOff) {
                 activeNotesRef.current.forEach(note => {
-                  const noteName = midiNoteToNoteName(note)
+                  const noteName = midiToNote(note)
                   if (noteName) onNoteOff(noteName)
                 })
               }
@@ -251,7 +230,7 @@ const useMidiKeyboard = ({
       logger.error('Failed to initialize MIDI:', error)
       return false
     }
-  }, [handleMidiMessage, isMidiConnected, midiNoteToNoteName, onNoteOff])
+  }, [handleMidiMessage, isMidiConnected, onNoteOff])
 
   /**
    * Force release all held notes
@@ -259,12 +238,12 @@ const useMidiKeyboard = ({
   const releaseAllNotes = useCallback(() => {
     if (onNoteOff) {
       activeNotesRef.current.forEach(note => {
-        const noteName = midiNoteToNoteName(note)
+        const noteName = midiToNote(note)
         if (noteName) onNoteOff(noteName)
       })
     }
     activeNotesRef.current.clear()
-  }, [midiNoteToNoteName, onNoteOff])
+  }, [onNoteOff])
 
   return {
     isMidiConnected,

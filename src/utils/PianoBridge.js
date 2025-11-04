@@ -1,5 +1,6 @@
 // src/utils/PianoBridge.js
 import logger from './logger'
+import { normalizeNote, isPlayableNote } from './musicTheory'
 
 /**
  * A utility to bridge between the FooterPiano component and other parts of the application
@@ -11,88 +12,6 @@ let pianoInstance = null
 
 // Array to store note event listeners
 let noteListeners = []
-
-/**
- * Normalizes a note name to match the format expected by the piano
- * @param {string} noteName - The note name to normalize (e.g., "C4", "D#3", "Eb5")
- * @returns {string} - The normalized note name for the piano component
- */
-const normalizeNoteName = noteName => {
-  if (!noteName) return ''
-
-  try {
-    // First, standardize the note name format
-    let note = noteName.trim()
-
-    // Extract the note letter and octave
-    const match = note.match(/^([A-Ga-g][#♯b♭s]*)([0-9]+)$/)
-    if (!match) {
-      logger.warn('Invalid note format:', noteName)
-      return noteName
-    }
-
-    let [, notePart, octavePart] = match
-
-    // Standardize the note part (C, C#, Db, etc.)
-    notePart = notePart.charAt(0).toUpperCase() + notePart.slice(1)
-
-    // Convert accidentals to the format expected by the piano
-    // If your piano uses 's' for sharps instead of '#'
-    if (pianoInstance && pianoInstance.useSharpS) {
-      notePart = notePart.replace('#', 's').replace('♯', 's')
-    } else {
-      // Standardize to '#' for sharps if that's what the piano expects
-      notePart = notePart.replace('s', '#').replace('♯', '#')
-    }
-
-    // Handle flats - convert to equivalent sharps if needed
-    // This depends on how your piano handles flats
-    if (notePart.includes('b') || notePart.includes('♭')) {
-      // Map of flat notes to their sharp equivalents
-      const flatToSharp = {
-        Cb: 'B',
-        Db: 'C#',
-        Eb: 'D#',
-        Fb: 'E',
-        Gb: 'F#',
-        Ab: 'G#',
-        Bb: 'A#',
-      }
-
-      // Replace 'b' or '♭' with '' to get the flat note name
-      const flatNote = notePart.replace('b', '').replace('♭', '')
-      const flatKey = flatNote + 'b'
-
-      if (flatToSharp[flatKey]) {
-        notePart = flatToSharp[flatKey]
-
-        // For Cb and Fb, we need to adjust the octave
-        if (flatKey === 'Cb') {
-          octavePart = String(parseInt(octavePart) - 1)
-        }
-      }
-    }
-
-    // Adjust octave for very low notes (may need customization based on your piano implementation)
-    const octave = parseInt(octavePart)
-    if (octave < 1) {
-      // If the note is too low for Tone.js, transpose it up an octave
-      octavePart = '1'
-    } else if (octave > 7) {
-      // If the note is too high for Tone.js, transpose it down an octave
-      octavePart = '7'
-    }
-
-    // Combine note and octave
-    const normalizedNote = notePart + octavePart
-    // Changed from warn to info (normal processing information)
-    logger.info(`Normalized note: ${noteName} -> ${normalizedNote}`)
-    return normalizedNote
-  } catch (error) {
-    logger.error('Error normalizing note name:', error)
-    return noteName // Return original if processing fails
-  }
-}
 
 /**
  * Set the piano instance reference
@@ -154,10 +73,14 @@ export const playNote = (noteName, options = {}) => {
   }
 
   try {
-    // Normalize the note name to the format expected by the piano
-    const normalizedNote = normalizeNoteName(noteName)
+    // Normalize the note name using centralized function
+    const normalizedNote = normalizeNote(noteName)
 
-    // Changed from warn to info (normal processing information)
+    if (!normalizedNote || !isPlayableNote(normalizedNote)) {
+      logger.warn(`Note ${noteName} is invalid or out of playable range`)
+      return
+    }
+
     logger.info(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
 
     // Notify listeners with the provided source
@@ -212,8 +135,13 @@ export const highlightNote = noteName => {
   }
 
   try {
-    // Normalize the note name to the format expected by the piano
-    const normalizedNote = normalizeNoteName(noteName)
+    // Normalize the note name using centralized function
+    const normalizedNote = normalizeNote(noteName)
+
+    if (!normalizedNote) {
+      logger.warn(`Invalid note format: ${noteName}`)
+      return
+    }
 
     // Highlight the note using the piano instance
     if (pianoInstance.highlightNote) {

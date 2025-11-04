@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { SAMPLE_SCORES } from '../../data/scoreData'
 import logger from '../../utils/logger'
+import { midiToNote, frequencyToNote } from '../../utils/musicTheory'
 import {
   NotationDisplayContainer,
   NotationCanvas,
@@ -24,46 +25,6 @@ import {
 
 const DEFAULT_SCORE_URL =
   'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml'
-
-/**
- * Converts a MIDI note number to a standard notation note name
- * @param {number} midiNote - MIDI note number (0-127)
- * @returns {string} Note name in standard notation (e.g., "C4", "F#5")
- */
-const midiNoteToNoteName = midiNote => {
-  if (midiNote === undefined || midiNote === null) {
-    logger.warn('Invalid MIDI note number')
-    return 'C4' // Default to middle C
-  }
-
-  // Note names with sharps
-  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-
-  // The standard formula to convert MIDI to octave
-  // MIDI 60 = C4 (Middle C)
-  let octave = Math.floor(midiNote / 12) - 1
-
-  // Adjust octave for playability if needed
-  if (octave < 1) {
-    // If too low, transpose up to a playable range
-    const octavesUp = Math.ceil(1 - octave)
-    octave += octavesUp
-    logger.info(`Note too low, transposing up ${octavesUp} octaves`)
-  } else if (octave > 7) {
-    // If too high, transpose down to a playable range
-    const octavesDown = Math.ceil(octave - 7)
-    octave -= octavesDown
-    logger.info(`Note too high, transposing down ${octavesDown} octaves`)
-  }
-
-  // Calculate note name index (0-11)
-  const noteIndex = midiNote % 12
-
-  const noteName = noteNames[noteIndex] + octave
-  logger.debug(`Converted MIDI note ${midiNote} to ${noteName}`)
-
-  return noteName
-}
 
 // Function to check if a note is tied (second note of a tie)
 const isTiedNote = note => {
@@ -118,39 +79,6 @@ const isTiedNote = note => {
   } catch (err) {
     logger.warn('Error checking if note is tied:', err)
     return false
-  }
-}
-
-/**
- * Converts a frequency in Hz to a note name
- * @param {number} frequency - The frequency in Hz
- * @returns {string} Note name in the format of letter, accidental, and octave (e.g., "C4", "F#5")
- */
-const frequencyToNoteName = frequency => {
-  try {
-    if (!frequency || frequency <= 0) {
-      logger.warn(`Invalid frequency: ${frequency}`)
-      return null
-    }
-
-    // A4 = 440 Hz
-    const A4 = 440.0
-
-    // Calculate how many semitones away from A4
-    // Formula: 12 * log2(f / 440)
-    const semitoneOffset = 12 * Math.log2(frequency / A4)
-
-    // Round to the nearest semitone
-    const semitones = Math.round(semitoneOffset)
-
-    // Calculate MIDI note number (A4 is MIDI note 69)
-    const midiNote = 69 + semitones
-
-    // Convert MIDI note number to note name
-    return midiNoteToNoteName(midiNote)
-  } catch (err) {
-    logger.error('Error converting frequency to note name:', err)
-    return null
   }
 }
 
@@ -215,14 +143,14 @@ const extractNotesInfo = notesUnderCursor => {
 
           // Try frequency first - most reliable method
           if (pitchObj.frequency && pitchObj.frequency > 0) {
-            noteName = frequencyToNoteName(pitchObj.frequency)
+            noteName = frequencyToNote(pitchObj.frequency)
             logger.debug(`Using frequency (${pitchObj.frequency} Hz) → ${noteName}`)
           }
 
           // If frequency conversion failed, try MIDI
           if (!noteName && pitchObj.halfTone !== undefined) {
             const midiNoteNumber = pitchObj.halfTone
-            noteName = midiNoteToNoteName(midiNoteNumber)
+            noteName = midiToNote(midiNoteNumber)
             logger.debug(`Using MIDI conversion (${midiNoteNumber}) → ${noteName}`)
           }
 
