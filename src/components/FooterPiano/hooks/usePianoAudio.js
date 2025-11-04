@@ -1,70 +1,15 @@
+// src/components/FooterPiano/hooks/usePianoAudio.js
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import * as Tone from 'tone'
 import logger from '../../../utils/logger'
+import { normalizeNoteForTone, isPlayableNote } from '../../../utils/musicTheory'
 
 // Configure logger for audio engine (less frequent than UI events but still high volume)
 logger.configure({
   throttleMs: 150, // Throttle audio logs to reduce frequency
   sampleRate: 5, // Only log 1 out of 5 audio events
 })
-
-// Helper function to standardize note format for Tone.js
-const standardizeNoteForTone = note => {
-  if (!note) return null
-
-  try {
-    // Extract note and octave
-    const match = note.match(/^([A-Ga-g])([#sb♯♭]?)(\d+)$/)
-    if (!match) {
-      logger.warn(() => `Invalid note format: ${note}`)
-      return null
-    }
-
-    // Destructure without unused variable
-    const [, noteLetter, accidental, octave] = match
-
-    // Standardize the note letter to uppercase
-    const standardizedNoteLetter = noteLetter.toUpperCase()
-
-    // Convert 's' to '#' for Tone.js
-    let standardizedAccidental = accidental
-    if (accidental === 's') {
-      standardizedAccidental = '#'
-    } else if (accidental === 'b' || accidental === '♭') {
-      standardizedAccidental = 'b'
-    }
-
-    // Build the standardized note
-    const standardizedNote = `${standardizedNoteLetter}${standardizedAccidental}${octave}`
-
-    return standardizedNote
-  } catch (err) {
-    logger.warn(() => `Error standardizing note: ${note} - ${err.message}`)
-    return null
-  }
-}
-
-// Function to check if a note is within the playable range
-const isNoteInRange = note => {
-  // Define the range of your piano
-  const MIN_NOTE = 21 // A0
-  const MAX_NOTE = 108 // C8
-
-  try {
-    // Convert note to MIDI number
-    const standardizedNote = standardizeNoteForTone(note)
-    if (!standardizedNote) return false
-
-    // Use Tone.js Frequency to convert to MIDI
-    const midiNote = Tone.Frequency(standardizedNote).toMidi()
-
-    // Check if within range
-    return midiNote >= MIN_NOTE && midiNote <= MAX_NOTE
-  } catch (err) {
-    logger.warn(() => `Error checking note range: ${note} - ${err.message}`)
-    return false
-  }
-}
 
 const usePianoAudio = () => {
   const [isAudioStarted, setIsAudioStarted] = useState(false)
@@ -155,10 +100,10 @@ const usePianoAudio = () => {
           }
 
           // Standardize the note format for Tone.js
-          const standardizedNote = standardizeNoteForTone(note)
+          const standardizedNote = normalizeNoteForTone(note)
 
           // Check if note is in playable range
-          if (!standardizedNote || !isNoteInRange(standardizedNote)) {
+          if (!standardizedNote || !isPlayableNote(standardizedNote)) {
             logger.warn(
               () => `Note ${note} (standardized: ${standardizedNote}) is out of range or invalid`,
             )
@@ -202,7 +147,7 @@ const usePianoAudio = () => {
           }
 
           // Standardize the note format for Tone.js
-          const standardizedNote = standardizeNoteForTone(note)
+          const standardizedNote = normalizeNoteForTone(note)
 
           if (standardizedNote) {
             sampler.triggerRelease(standardizedNote)
@@ -229,7 +174,7 @@ const usePianoAudio = () => {
         if (sampler && isAudioStarted && isLoaded) {
           try {
             const notesToRelease = Array.from(sustainedNotesRef.current)
-              .map(standardizeNoteForTone)
+              .map(normalizeNoteForTone)
               .filter(Boolean)
 
             if (notesToRelease.length > 0) {
