@@ -12,14 +12,11 @@ export const PianoContainer = styled.div`
   -webkit-overflow-scrolling: touch;
   z-index: 1000;
 
-  /* Hide scrollbar for Chrome, Safari and Opera */
   &::-webkit-scrollbar {
     display: none;
   }
-
-  /* Hide scrollbar for IE, Edge and Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 
   @media (max-width: 768px) {
     height: 100px;
@@ -60,31 +57,45 @@ export const ControlsContainer = styled.div`
 
 export const WhiteKeysContainer = styled.div`
   display: flex;
-  height: 80%; /* Changed from 100% to account for the upper housing */
+  height: 80%;
   position: relative;
   min-width: max-content;
 `
 
-// Add styles for active state
+// PÄIVITETTY: WhiteKey - Hohtoefekti
 export const WhiteKey = styled.div.attrs(props => ({
   style: {
     width: `${props.$width}px`,
   },
 }))`
   height: 100%;
-  background-color: ${props => (props.$active ? '#e0e8ff' : 'white')};
-  border: 1px solid #ddd;
+  /* Käytä teeman guidance-väriä kun aktiivinen */
+  background-color: ${props => (props.$active ? props.theme.colors.guidance.main : 'white')};
+
+  /* Lisää hohto kun aktiivinen */
+  box-shadow: ${props => (props.$active ? props.theme.colors.guidance.glow : 'none')};
+
+  /* Nosta aktiivinen kosketin muiden päälle jotta hohto näkyy */
+  z-index: ${props => (props.$active ? 2 : 0)};
+
+  /* Poista reunus aktiivisena jotta väri on puhtaampi, tai pidä kevyenä */
+  border: ${props =>
+    props.$active ? `1px solid ${props.theme.colors.guidance.dark}` : '1px solid #ddd'};
+
   border-radius: 0 0 4px 4px;
   box-sizing: border-box;
   position: relative;
   cursor: pointer;
-  transition: background-color 0.1s ease;
+  transition:
+    background-color 0.05s ease,
+    box-shadow 0.05s ease;
 
   &:active {
-    background-color: #e0e8ff;
+    background-color: ${props => props.theme.colors.guidance.light};
   }
 `
 
+// PÄIVITETTY: BlackKey - Hohtoefekti
 export const BlackKey = styled.div.attrs(props => ({
   style: {
     width: `${props.$width}px`,
@@ -93,20 +104,30 @@ export const BlackKey = styled.div.attrs(props => ({
 }))`
   position: absolute;
   height: 65%;
-  background-color: ${props => (props.$active ? '#555' : '#222')};
+
+  /* Käytä teeman guidance-väriä kun aktiivinen */
+  background-color: ${props => (props.$active ? props.theme.colors.guidance.main : '#222')};
+
+  /* Lisää voimakas hohto */
+  box-shadow: ${props =>
+    props.$active ? props.theme.colors.guidance.glow : '0 2px 5px rgba(0, 0, 0, 0.5)'};
+
   border-radius: 0 0 3px 3px;
   box-sizing: border-box;
-  z-index: 1;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+
+  /* Nosta musta kosketin aina valkoisten päälle, mutta aktiivinen musta vielä ylemmäs */
+  z-index: ${props => (props.$active ? 10 : 5)};
+
   cursor: pointer;
-  transition: background-color 0.1s ease;
+  transition:
+    background-color 0.05s ease,
+    box-shadow 0.05s ease;
 
   &:active {
     background-color: #555;
   }
 `
 
-// Add Start Audio button
 export const StartAudioButton = styled.button`
   position: absolute;
   top: 50%;
@@ -125,7 +146,6 @@ export const StartAudioButton = styled.button`
   }
 `
 
-// Updated KeyLabel components
 export const KeyLabel = styled.div`
   position: absolute;
   bottom: 5px;
@@ -136,9 +156,8 @@ export const KeyLabel = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 5;
+  z-index: 20; /* Varmista että teksti on aina päällä */
 
-  /* Adjust position for black keys */
   ${props =>
     props.$isBlack &&
     `
@@ -149,33 +168,47 @@ export const KeyLabel = styled.div`
 export const NoteName = styled.span`
   font-size: 12px;
   font-weight: 600;
-  color: ${props => (props.$isBlack ? '#fff' : '#222')};
+  /* Muuta tekstin väriä jos kosketin on aktiivinen, jotta kontrasti säilyy */
+  color: ${props => {
+    if (props.$isBlack) {
+      // Mustalla koskettimella: Jos aktiivinen (syaani tausta) -> musta teksti, muuten valkoinen
+      return props.$active ? '#000' : '#fff'
+    } else {
+      // Valkoisella koskettimella: Aina tumma teksti
+      return '#222'
+    }
+  }};
+
   line-height: 1;
   display: block;
-  user-select: none; /* Prevent text selection */
-  -webkit-user-select: none; /* Safari */
-  -moz-user-select: none; /* Firefox */
-  -ms-user-select: none; /* IE/Edge */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 `
 
 export const OctaveNumber = styled.span`
   font-size: 9px;
-  color: ${props => (props.$isBlack ? '#ccc' : '#666')};
+  color: ${props => {
+    if (props.$isBlack) {
+      return props.$active ? '#333' : '#ccc'
+    } else {
+      return '#666'
+    }
+  }};
   line-height: 1;
   display: block;
-  user-select: none; /* Prevent text selection */
-  -webkit-user-select: none; /* Safari */
-  -moz-user-select: none; /* Firefox */
-  -ms-user-select: none; /* IE/Edge */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 `
 
-// Add spinning animation
 const spin = keyframes`
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 `
 
-// Add loading indicator styles
 export const LoadingIndicator = styled.div`
   position: absolute;
   top: 50%;
@@ -210,6 +243,7 @@ export const MidiIndicator = styled.div`
     margin-right: 4px;
   }
 `
+
 export const SustainIndicator = styled.div`
   padding: 4px 8px;
   background-color: rgba(0, 0, 0, 0.5);
@@ -217,10 +251,10 @@ export const SustainIndicator = styled.div`
   border-radius: 4px;
   margin-left: 8px;
   transition: color 0.2s ease;
-  color: #aaaaaa; /* Default color - gray */
+  color: #aaaaaa;
 
   &.active {
-    color: #4caf50; /* Active color - green */
+    color: #4caf50;
   }
 
   &::before {
