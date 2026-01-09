@@ -2,9 +2,15 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import NotationDisplay from '../../components/NotationDisplay'
 import useNoteMatching from '../../hooks/useNoteMatching'
-import useScoreAudio from './hooks/useScoreAudio' // Uusi hook
-import NoteInfoPanel from './components/NoteInfoPanel' // Uusi komponentti
-import { NotationContainer, PageTitle, NotationSection, NotationWrapper } from './Notation.styles'
+import useScoreAudio from './hooks/useScoreAudio'
+import NoteInfoPanel from './components/NoteInfoPanel'
+import {
+  NotationContainer,
+  ScoreArea,
+  Sidebar,
+  PageTitle,
+  NotationWrapper,
+} from './Notation.styles'
 
 const DEFAULT_SCORE_URL =
   'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml'
@@ -33,9 +39,8 @@ const Notation = () => {
     const shouldAutoPlay = options.autoPlay !== undefined ? options.autoPlay : autoPlayEnabled
     playScoreNotes(notes, shouldAutoPlay)
 
-    // Optional: Visual highlight on piano (if bridge supports it)
+    // Visual highlight on piano
     if (window.highlightPianoChord && notes.length > 0) {
-      // Highlight target notes briefly on piano keybed
       const notesToHighlight = notes.filter(n => !n.isTied).map(n => n.name)
       window.highlightPianoChord(notesToHighlight)
     }
@@ -51,19 +56,20 @@ const Notation = () => {
     if (settings.autoAdvance !== undefined) setAutoAdvanceEnabled(settings.autoAdvance)
   }
 
-  // Effects
+  // Auto-advance logic
   useEffect(() => {
     if (isMatched && autoAdvanceEnabled && currentNotes.length > 0) {
       const timer = setTimeout(() => {
         if (notationRef.current?.next) {
           notationRef.current.next()
         }
-      }, 200) // Slight delay helps user realize they got it right
+      }, 200)
 
       return () => clearTimeout(timer)
     }
   }, [isMatched, autoAdvanceEnabled, currentNotes])
 
+  // Responsive zoom
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) setZoom(0.8)
@@ -75,15 +81,15 @@ const Notation = () => {
   }, [])
 
   return (
-    <NotationContainer>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <PageTitle>Notation Practice</PageTitle>
-
-        <NotationSection>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      style={{ width: '100%', height: '100%' }} // Ensure motion div takes full space
+    >
+      <NotationContainer>
+        {/* VASEN SARAKE: Nuotit ja kontrollit */}
+        <ScoreArea>
           <NotationWrapper>
             <NotationDisplay
               ref={notationRef}
@@ -96,17 +102,23 @@ const Notation = () => {
               onSettingsChange={handleSettingsChange}
             />
           </NotationWrapper>
+        </ScoreArea>
 
-          {/* New sub-component handles the display logic */}
+        {/* OIKEA SARAKE: Sivupalkki (Dashboard) */}
+        <Sidebar>
+          <PageTitle>Practice Dashboard</PageTitle>
+
           <NoteInfoPanel
             currentNotes={currentNotes}
             activeNotes={activeNotes}
             matchedNotes={matchedNotes}
             isMatched={isMatched}
           />
-        </NotationSection>
-      </motion.div>
-    </NotationContainer>
+
+          {/* Tähän voi myöhemmin lisätä esim. Metronomin tai Soittohistorian */}
+        </Sidebar>
+      </NotationContainer>
+    </motion.div>
   )
 }
 

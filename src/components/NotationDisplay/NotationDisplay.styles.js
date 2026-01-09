@@ -85,17 +85,21 @@ export const ControlsContainer = styled.div`
   align-items: center;
   flex-wrap: wrap;
   gap: ${({ theme }) => theme.spacing(4)};
-  padding: ${({ theme }) => theme.spacing(3)};
+  padding: ${({ theme }) => theme.spacing(2)} ${({ theme }) => theme.spacing(3)};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background-color: ${({ theme }) => theme.colors.background.card};
+  background-color: ${({ theme }) =>
+    theme.colors.background.card}; /* Varmista että tausta on kiinteä */
 
+  /* Sticky positioning - Tämä on avainasemassa */
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 100; /* Varmista että pysyy nuottien päällä */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Pieni varjo erottamaan kontrollit */
 
   @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
     flex-direction: column;
     align-items: center;
+    position: static; /* Mobiilissa ei ehkä kannata olla sticky jos tila loppuu */
   }
 `
 
