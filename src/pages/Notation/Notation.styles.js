@@ -1,87 +1,111 @@
-// src/pages/Notation/Notation.styles.js
 import styled from 'styled-components'
+import { motion } from 'framer-motion'
 
 export const NotationContainer = styled.div`
-  padding-top: 0.5rem;
-  padding-bottom: 2rem;
-  width: 100%;
-  max-width: 100%;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  overflow-x: hidden;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: ${({ theme }) => theme.spacing(2)};
+  gap: ${({ theme }) => theme.spacing(4)};
 `
 
 export const PageTitle = styled.h1`
-  margin-bottom: ${({ theme }) => theme.spacing(8)};
+  font-size: 2.5rem;
   color: ${({ theme }) => theme.colors.text.primary};
+  margin-bottom: ${({ theme }) => theme.spacing(2)};
   text-align: center;
-  font-size: 3rem;
-  width: 100%;
 `
 
 export const NotationSection = styled.div`
-  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing(6)};
+  gap: ${({ theme }) => theme.spacing(4)};
 `
 
-// Updated wrapper component to ensure proper containment and scrolling
 export const NotationWrapper = styled.div`
   width: 100%;
-  max-width: 100%; // Ensure it doesn't exceed screen width
-  overflow-x: auto; // Enable horizontal scrolling
-  background-color: ${({ theme }) => theme.colors.background.paper};
+  background: white;
   border-radius: ${({ theme }) => theme.borderRadius.medium};
+  box-shadow: ${({ theme }) => theme.shadows.medium};
+  overflow: hidden;
+`
+
+// Uudistettu InfoPanel (parempi ulkoasu)
+export const InfoPanel = styled(motion.div)`
+  background-color: ${({ theme }) => theme.colors.background.card};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  padding: ${({ theme }) => theme.spacing(3)};
   box-shadow: ${({ theme }) => theme.shadows.small};
+  border-left: 5px solid ${({ theme }) => theme.colors.primary.main};
 
-  /* Responsive adjustments */
-  @media (min-width: ${({ theme }) => theme.breakpoints.tablet}) {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  /* Adjust for mobile */
-  @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
-    max-width: 95%;
-    margin-left: auto;
-    margin-right: auto;
+  h3 {
+    margin-top: 0;
+    margin-bottom: ${({ theme }) => theme.spacing(2)};
+    font-size: 1.8rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: ${({ theme }) => theme.colors.text.primary};
   }
 `
 
-export const InfoPanel = styled.div`
-  padding: ${({ theme }) => theme.spacing(4)};
-  background-color: ${({ theme }) => theme.colors.background.card};
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  margin-top: ${({ theme }) => theme.spacing(4)};
-  width: 100%;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
+export const MatchStatus = styled(motion.span)`
+  color: ${({ theme }) => theme.colors.success};
+  background: rgba(76, 175, 80, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 1.4rem;
+  font-weight: bold;
+`
 
-  h3 {
-    font-size: 2rem;
-    margin-bottom: ${({ theme }) => theme.spacing(4)};
-    color: ${({ theme }) => theme.colors.text.primary};
-  }
+export const NoteList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${({ theme }) => theme.spacing(2)};
+`
 
-  ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
+export const NoteItem = styled.li`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: ${({ theme }) => theme.spacing(1)} ${({ theme }) => theme.spacing(2)};
+  border-radius: ${({ theme }) => theme.borderRadius.small};
+  background-color: ${({ theme, $isCorrect, $isPressed, $isTied }) => {
+    if ($isTied) return 'rgba(0,0,0,0.05)' // Haalea harmaa
+    if ($isCorrect) return 'rgba(76, 175, 80, 0.2)' // Vihreä tausta
+    if ($isPressed) return 'rgba(33, 150, 243, 0.2)' // Sininen tausta
+    return theme.colors.background.paper
+  }};
 
-  li {
+  border: 1px solid
+    ${({ theme, $isCorrect, $isPressed, $isTied }) => {
+      if ($isTied) return 'transparent'
+      if ($isCorrect) return theme.colors.success
+      if ($isPressed) return theme.colors.primary.main
+      return theme.colors.border
+    }};
+
+  opacity: ${({ $isTied }) => ($isTied ? 0.6 : 1)};
+  text-decoration: ${({ $isTied }) => ($isTied ? 'line-through' : 'none')};
+  transition: all 0.2s ease;
+
+  .note-name {
+    font-weight: bold;
     font-size: 1.6rem;
-    padding: ${({ theme }) => theme.spacing(2)};
-    border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+    color: ${({ theme, $isCorrect, $isPressed }) => {
+      if ($isCorrect) return theme.colors.success
+      if ($isPressed) return theme.colors.primary.main
+      return theme.colors.text.primary
+    }};
+  }
 
-    &:last-child {
-      border-bottom: none;
-    }
+  .note-details {
+    font-size: 1.2rem;
+    color: ${({ theme }) => theme.colors.text.secondary};
   }
 `
