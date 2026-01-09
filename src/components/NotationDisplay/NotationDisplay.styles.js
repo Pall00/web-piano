@@ -1,4 +1,3 @@
-// src/components/NotationDisplay/NotationDisplay.styles.js
 import styled from 'styled-components'
 
 export const NotationDisplayContainer = styled.div`
@@ -25,17 +24,15 @@ export const NotationDisplayContainer = styled.div`
   }
 `
 
-// Enhanced horizontal scrolling container with fixed width
 export const HorizontalScrollContainer = styled.div`
   width: 100%;
-  max-width: 100vw; /* Ensure it never exceeds viewport width */
+  max-width: 100vw;
   overflow-x: auto;
   overflow-y: hidden;
   padding: ${({ theme }) => theme.spacing(2)};
   position: relative;
   display: block;
 
-  /* Add custom scrollbar styling */
   &::-webkit-scrollbar {
     height: 8px;
   }
@@ -56,7 +53,6 @@ export const HorizontalScrollContainer = styled.div`
 `
 
 export const NotationCanvas = styled.div`
-  /* Fixed height but allow natural width for horizontal scrolling */
   min-height: 300px;
   margin-top: ${({ theme }) => theme.spacing(2)};
   margin-bottom: ${({ theme }) => theme.spacing(2)};
@@ -66,13 +62,11 @@ export const NotationCanvas = styled.div`
   box-sizing: border-box;
   overflow: visible;
 
-  /* Ensure OSMD content is properly contained */
   & > div {
     width: auto;
     overflow: visible;
   }
 
-  /* Specific styles for OSMD SVG content */
   & svg {
     display: block;
     height: auto !important;
@@ -87,19 +81,16 @@ export const ControlsContainer = styled.div`
   gap: ${({ theme }) => theme.spacing(4)};
   padding: ${({ theme }) => theme.spacing(2)} ${({ theme }) => theme.spacing(3)};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background-color: ${({ theme }) =>
-    theme.colors.background.card}; /* Varmista että tausta on kiinteä */
-
-  /* Sticky positioning - Tämä on avainasemassa */
+  background-color: ${({ theme }) => theme.colors.background.card};
   position: sticky;
   top: 0;
-  z-index: 100; /* Varmista että pysyy nuottien päällä */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Pieni varjo erottamaan kontrollit */
+  z-index: 100;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 
   @media (max-width: ${({ theme }) => theme.breakpoints.mobile}) {
     flex-direction: column;
     align-items: center;
-    position: static; /* Mobiilissa ei ehkä kannata olla sticky jos tila loppuu */
+    position: static;
   }
 `
 
@@ -189,6 +180,20 @@ export const NavigationButton = styled(Button)`
   }
 `
 
+export const PlayButton = styled(NavigationButton)`
+  background-color: ${({ theme, $isPlaying }) =>
+    $isPlaying ? theme.colors.error : theme.colors.primary.main};
+  color: white;
+  border: none;
+  min-width: 80px;
+
+  &:hover {
+    background-color: ${({ theme, $isPlaying }) =>
+      $isPlaying ? '#d32f2f' : theme.colors.primary.dark};
+    border-color: transparent;
+  }
+`
+
 export const ZoomLevel = styled.div`
   padding: ${({ theme }) => theme.spacing(2)};
   width: 6rem;
@@ -197,7 +202,6 @@ export const ZoomLevel = styled.div`
   font-size: 1.6rem;
 `
 
-// Added settings styles
 export const SettingsContainer = styled.div`
   display: flex;
   align-items: center;
@@ -233,7 +237,42 @@ export const SettingsToggle = styled.div`
   }
 `
 
-// Imported and adapted from ScoreSelector.styles.js
+export const TempoControl = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing(1)};
+  background-color: ${({ theme }) => theme.colors.background.paper};
+  padding: 4px 8px;
+  border-radius: ${({ theme }) => theme.borderRadius.small};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+
+  label {
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: ${({ theme }) => theme.colors.text.primary};
+  }
+
+  input {
+    width: 50px;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: ${({ theme }) => theme.colors.primary.main};
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  span {
+    font-size: 1.2rem;
+    color: ${({ theme }) => theme.colors.text.secondary};
+  }
+`
+
 export const SelectorLabel = styled.label`
   font-size: 1.6rem;
   font-weight: 500;
