@@ -1,9 +1,8 @@
-// src/components/NotationDisplay/NotationDisplay.jsx
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { SAMPLE_SCORES } from '../../data/scoreData'
 import logger from '../../utils/logger'
-import { midiToNote, frequencyToNote } from '../../utils/musicTheory'
+import { extractNotesInfo } from '../../utils/osmdHelpers'
 import {
   NotationDisplayContainer,
   NotationCanvas,
@@ -26,201 +25,6 @@ import {
 const DEFAULT_SCORE_URL =
   'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml'
 
-// Function to check if a note is tied (second note of a tie)
-const isTiedNote = note => {
-  try {
-    // First, check if this note is part of a tie relationship
-    if (note.tie && note.tie.notes) {
-      // Get all the notes in this tie relationship
-      const tieNotes = note.tie.notes
-
-      // If there are multiple notes in the tie
-      if (tieNotes.length > 1) {
-        logger.debug(`Note is part of a tie with ${tieNotes.length} notes`)
-
-        // Find this note's position in the tie relationship
-        const noteIndex = tieNotes.indexOf(note)
-
-        // If this note is not the first note in the tie, it's a continuation
-        // note and should not be played
-        if (noteIndex > 0) {
-          logger.info(`Note is position ${noteIndex} in tie - should not be played`)
-          return true
-        }
-
-        // Even if it's the first note in tie.notes, check if it has a continuing
-        // tie from previous measure or voice by examining the tie's Type property
-        if (note.tie.Type === 'stop' || note.tie.Type === 'continue') {
-          logger.info(`Note has tie Type=${note.tie.Type}`)
-          return true
-        }
-      }
-    }
-
-    // Look for note.Notations?.TiedList with a 'stop' type
-    if (note.Notations && note.Notations.TiedList) {
-      for (const tied of note.Notations.TiedList) {
-        if (tied.Type === 'stop') {
-          logger.info('Found tied stop in TiedList')
-          return true
-        }
-      }
-    }
-
-    // Check for tie start vs continue/stop
-    if (note.tie && note.tie.Type) {
-      if (note.tie.Type !== 'start' && note.tie.Type !== '') {
-        logger.info(`Note has non-start tie Type: ${note.tie.Type}`)
-        return true
-      }
-    }
-
-    return false
-  } catch (err) {
-    logger.warn('Error checking if note is tied:', err)
-    return false
-  }
-}
-
-// Function to safely extract note information with proper error handling
-const extractNotesInfo = notesUnderCursor => {
-  try {
-    if (notesUnderCursor.length > 0) {
-      logger.debug(`Processing notes under cursor: ${notesUnderCursor.length}`)
-
-      // Add more detailed debugging for the first note
-      if (notesUnderCursor[0]) {
-        logger.debug('Note properties:', Object.keys(notesUnderCursor[0]))
-
-        // Look for any property containing "tie" in its name
-        const tieProperties = Object.keys(notesUnderCursor[0]).filter(key =>
-          key.toLowerCase().includes('tie'),
-        )
-        if (tieProperties.length > 0) {
-          logger.debug('Properties related to ties:', tieProperties)
-        }
-      }
-    }
-
-    // After checking properties related to ties, add this section for detailed analysis
-    if (notesUnderCursor[0] && notesUnderCursor[0].tie) {
-      logger.debug('Detailed tie information:')
-      try {
-        // Check the tie notes array to identify which notes come first/second
-        const tieNotes = notesUnderCursor[0].tie.notes
-        if (tieNotes && tieNotes.length > 0) {
-          logger.debug(`  Tie contains ${tieNotes.length} notes`)
-
-          // Compare notes by reference to see if the current note is in the tie
-          const currentNoteIndex = tieNotes.indexOf(notesUnderCursor[0])
-          logger.debug(`  Current note index in tie: ${currentNoteIndex}`)
-        }
-
-        // Log some more specific information about the tie
-        if (typeof notesUnderCursor[0].tie.Type === 'string') {
-          logger.debug(`  Tie Type: ${notesUnderCursor[0].tie.Type}`)
-        }
-      } catch (tieErr) {
-        logger.warn('Error analyzing tie object:', tieErr)
-      }
-    }
-
-    const notes = notesUnderCursor
-      .map(note => {
-        if (!note) return null
-
-        try {
-          // Check for TransposedPitch first (if sheet is transposed)
-          // Then fall back to regular Pitch
-          const pitchObj = note.TransposedPitch || note.Pitch
-
-          if (!pitchObj) {
-            logger.warn('Note missing pitch information')
-            return null
-          }
-
-          let noteName = null
-
-          // Try frequency first - most reliable method
-          if (pitchObj.frequency && pitchObj.frequency > 0) {
-            noteName = frequencyToNote(pitchObj.frequency)
-            logger.debug(`Using frequency (${pitchObj.frequency} Hz) → ${noteName}`)
-          }
-
-          // If frequency conversion failed, try MIDI
-          if (!noteName && pitchObj.halfTone !== undefined) {
-            const midiNoteNumber = pitchObj.halfTone
-            noteName = midiToNote(midiNoteNumber)
-            logger.debug(`Using MIDI conversion (${midiNoteNumber}) → ${noteName}`)
-          }
-
-          // Use safe access for duration
-          const duration = note.Length?.realValue || 0
-
-          if (!noteName) {
-            logger.warn('Could not determine note name')
-            return null
-          }
-
-          // Check if this is a tied note using our helper
-          let isTied = isTiedNote(note)
-
-          // ADDITIONAL CHECK: Examine the note's neighboring notes for tie relationships
-          if (!isTied && note.tie && note.tie.notes && note.tie.notes.length > 1) {
-            // Get this note's position in the tie.notes array
-            const indexInTie = note.tie.notes.indexOf(note)
-
-            // If this is not the first note in the tie, it's definitely tied
-            if (indexInTie > 0) {
-              logger.info(`Note ${noteName} is tied (position ${indexInTie} in tie.notes array)`)
-              isTied = true
-            }
-            // If this is the first note, check if it's continuing a tie from a previous measure
-            else if (indexInTie === 0 && note.tie.Type && note.tie.Type !== 'start') {
-              logger.info(
-                `First note in a tie but has Type=${note.tie.Type}, may be continuing from previous measure`,
-              )
-              isTied = true
-            }
-          }
-
-          // If note has TieList with a 'stop' type, it's definitely tied
-          if (!isTied && note.TieList && note.TieList.length > 0) {
-            for (const tie of note.TieList) {
-              if (tie.Type === 'stop' || tie.Type === 'continue') {
-                logger.info(`Note ${noteName} has TieList with Type=${tie.Type}`)
-                isTied = true
-                break
-              }
-            }
-          }
-
-          if (isTied) {
-            logger.info(`Note ${noteName} is a tied note - will be handled differently`)
-          }
-
-          return {
-            name: noteName,
-            duration: duration,
-            midiNote: pitchObj.halfTone,
-            isTied: isTied,
-          }
-        } catch (err) {
-          logger.warn('Error extracting note details:', err)
-          return null
-        }
-      })
-      .filter(Boolean) // Remove any nulls from the array
-
-    // Changed from warn to debug since this is just informational output
-    logger.debug('Extracted notes info:', notes)
-    return notes
-  } catch (err) {
-    logger.error('Error processing notes:', err)
-    return []
-  }
-}
-
 const defaultOptions = {
   autoResize: true,
   drawTitle: true,
@@ -231,515 +35,413 @@ const defaultOptions = {
   drawMeasureNumbers: true,
   drawTimeSignatures: true,
   drawFingerings: true,
-  // Add horizontal mode option (controlled by state)
   renderSingleHorizontalStaffline: false,
-  // Set a neutral backend that will work in all browsers
   backend: 'svg',
 }
 
-const NotationDisplay = ({
-  scoreUrl = DEFAULT_SCORE_URL,
-  onNoteSelected,
-  initialZoom = 1.0,
-  onZoomIn,
-  onZoomOut,
-  onScoreChange,
-  onSettingsChange,
-}) => {
-  const osmdContainerRef = useRef(null)
-  const osmdRef = useRef(null)
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [zoom, setZoom] = useState(initialZoom)
-  const [error, setError] = useState(null)
-  const [isInitialized, setIsInitialized] = useState(false)
-  const [selectedScore, setSelectedScore] = useState(SAMPLE_SCORES[0].id)
-  const [scoreLoaded, setScoreLoaded] = useState(false)
-
-  // Add settings state
-  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true)
-  const [autoPlayEnabled, setAutoPlayEnabled] = useState(true)
-  // Add horizontal mode state
-  const [horizontalMode, setHorizontalMode] = useState(false)
-
-  // Use zoom from props if provided
-  useEffect(() => {
-    setZoom(initialZoom)
-  }, [initialZoom])
-
-  // Memoize the loadScore function to use in multiple effects
-  const loadScore = useCallback(
-    async url => {
-      if (!osmdRef.current || !url) return
-
-      setIsLoaded(false)
-      setScoreLoaded(false)
-      setError(null)
-
-      try {
-        // Calculate container width for horizontal mode
-        let containerWidth = 800 // Default fallback width
-        if (osmdContainerRef.current) {
-          const parentElement = osmdContainerRef.current.parentElement
-          if (parentElement) {
-            containerWidth = parentElement.clientWidth - 20 // Leave a small margin
-          }
-        }
-
-        // Update options based on horizontal mode setting
-        if (horizontalMode) {
-          osmdRef.current.setOptions({
-            ...defaultOptions,
-            renderSingleHorizontalStaffline: true,
-            autoResize: false,
-            pageFormat: 'Endless',
-          })
-
-          // Set explicit width for horizontal mode
-          if (osmdRef.current.EngravingRules) {
-            osmdRef.current.EngravingRules.PageWidth = containerWidth
-          }
-        } else {
-          osmdRef.current.setOptions({
-            ...defaultOptions,
-            renderSingleHorizontalStaffline: false,
-            autoResize: true,
-            pageFormat: 'Endless',
-          })
-        }
-
-        await osmdRef.current.load(url)
-        setScoreLoaded(true)
-
-        // Force container styling
-        if (osmdContainerRef.current) {
-          if (horizontalMode) {
-            // For horizontal mode, control overflow
-            osmdContainerRef.current.style.width = containerWidth + 'px'
-            osmdContainerRef.current.style.overflowX = 'visible'
-            osmdContainerRef.current.parentElement.style.overflowX = 'auto'
-          } else {
-            // For vertical mode, allow content to determine dimensions
-            osmdContainerRef.current.style.width = '100%'
-            osmdContainerRef.current.style.overflowX = 'auto'
-          }
-        }
-
-        // Check if we can render before trying
-        if (osmdRef.current.IsReadyToRender()) {
-          // Only set zoom and render after we're absolutely sure it's ready
-          setTimeout(() => {
-            if (osmdRef.current) {
-              osmdRef.current.Zoom = zoom
-              osmdRef.current.render()
-            }
-          }, 50) // Small delay to ensure readiness
-
-          // Initialize cursor only after successful render
-          // Add a small delay before initializing the cursor
-          setTimeout(() => {
-            if (osmdRef.current) {
-              try {
-                // Only enable cursor if it's not already enabled
-                if (!osmdRef.current.cursor) {
-                  osmdRef.current.enableOrDisableCursors(true)
-                }
-
-                // Only try to show cursor if it exists now
-                if (osmdRef.current.cursor) {
-                  osmdRef.current.cursor.show()
-                }
-              } catch (err) {
-                logger.warn('Error setting up cursor:', err)
-                // Non-fatal error, continue without cursor
-              }
-            }
-          }, 100) // Longer delay for cursor initialization
-
-          setIsLoaded(true)
-        } else {
-          setError('Score loaded but not ready to render')
-        }
-      } catch (err) {
-        logger.error('Error loading score:', err)
-        setError('Failed to load sheet music')
-      }
+const NotationDisplay = forwardRef(
+  (
+    {
+      scoreUrl = DEFAULT_SCORE_URL,
+      onNoteSelected,
+      initialZoom = 1.0,
+      onZoomIn,
+      onZoomOut,
+      onScoreChange,
+      onSettingsChange,
     },
-    [zoom, horizontalMode],
-  )
+    ref,
+  ) => {
+    const osmdContainerRef = useRef(null)
+    const osmdRef = useRef(null)
+    const [isLoaded, setIsLoaded] = useState(false)
+    const [zoom, setZoom] = useState(initialZoom)
+    const [error, setError] = useState(null)
+    const [isInitialized, setIsInitialized] = useState(false)
+    const [selectedScore, setSelectedScore] = useState(SAMPLE_SCORES[0].id)
+    const [scoreLoaded, setScoreLoaded] = useState(false)
 
-  // Initialize OSMD
-  useEffect(() => {
-    if (!osmdContainerRef.current) return
+    // Asetukset
+    const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true)
+    const [autoPlayEnabled, setAutoPlayEnabled] = useState(true)
+    const [horizontalMode, setHorizontalMode] = useState(false)
 
-    // Store the current container reference to use in cleanup
-    const container = osmdContainerRef.current
+    // Nuottien käsittelylogiikka (DRY: käytetään next/prev/reset toiminnoissa)
+    const processCursorNotes = useCallback(() => {
+      if (!osmdRef.current?.cursor) return
 
-    // Clear any existing content
-    while (container.firstChild) {
-      container.removeChild(container.firstChild)
-    }
-
-    try {
-      // Apply OSMD-specific styles
-      container.style.maxWidth = '100%'
-      container.style.width = '100%'
-
-      // Set a fixed width for horizontal mode to maintain scrollability
-      if (horizontalMode) {
-        // Use the parent container's width for rendering
-        // This ensures we don't expand beyond the screen width
-        const parentWidth = container.parentElement ? container.parentElement.clientWidth : 800
-
-        // Create new OSMD instance with fixed width
-        const osmd = new OpenSheetMusicDisplay(container, {
-          ...defaultOptions,
-          renderSingleHorizontalStaffline: true,
-          pageFormat: 'Endless',
-          autoResize: false, // Disable auto resize to maintain our dimensions
-          width: parentWidth - 20, // Leave a small margin
-        })
-        osmd.setLogLevel('warn')
-        osmdRef.current = osmd
-      } else {
-        // Standard vertical rendering
-        const osmd = new OpenSheetMusicDisplay(container, {
-          ...defaultOptions,
-          renderSingleHorizontalStaffline: false,
-          pageFormat: 'Endless',
-          autoResize: true,
-        })
-        osmd.setLogLevel('warn')
-        osmdRef.current = osmd
-      }
-
-      setIsInitialized(true)
-    } catch (err) {
-      logger.error('Error initializing OSMD:', err)
-      setError('Failed to initialize sheet music display')
-    }
-
-    return () => {
-      // Clean up OSMD instance
-      if (osmdRef.current) {
-        // OSMD doesn't have a built-in dispose method, but we can at least
-        // remove its elements from the DOM
-        if (container) {
-          while (container.firstChild) {
-            container.removeChild(container.firstChild)
-          }
-        }
-        osmdRef.current = null
-      }
-      setIsInitialized(false)
-    }
-  }, [horizontalMode]) // Add horizontalMode as a dependency
-
-  // Load score when initialized and URL is available
-  useEffect(() => {
-    if (isInitialized && osmdRef.current && scoreUrl) {
-      loadScore(scoreUrl)
-    }
-  }, [scoreUrl, loadScore, isInitialized])
-
-  // Apply zoom when it changes AND a score is loaded
-  useEffect(() => {
-    if (osmdRef.current && isLoaded && scoreLoaded) {
-      try {
-        // Make sure the score is ready for rendering
-        if (osmdRef.current.IsReadyToRender()) {
-          osmdRef.current.Zoom = zoom
-          osmdRef.current.render()
-        } else {
-          // If not ready, log a message but don't try to render
-          logger.warn('Score not ready for zoom adjustment yet')
-        }
-      } catch (err) {
-        logger.error('Error applying zoom:', err)
-      }
-    }
-  }, [zoom, isLoaded, scoreLoaded])
-
-  const handleZoomIn = () => {
-    // Only apply zoom if the score is fully loaded
-    if (osmdRef.current && isLoaded && scoreLoaded) {
-      const newZoom = Math.min(zoom * 1.2, 3.0)
-      setZoom(newZoom)
-      if (onZoomIn) onZoomIn(newZoom)
-    }
-  }
-
-  const handleZoomOut = () => {
-    // Only apply zoom if the score is fully loaded
-    if (osmdRef.current && isLoaded && scoreLoaded) {
-      const newZoom = Math.max(zoom / 1.2, 0.5)
-      setZoom(newZoom)
-      if (onZoomOut) onZoomOut(newZoom)
-    }
-  }
-
-  const handleNextNote = useCallback(() => {
-    if (!osmdRef.current) return
-    if (!isLoaded) return
-
-    try {
-      // Make sure the cursor exists
-      if (!osmdRef.current.cursor) {
-        logger.warn('Cursor not available yet')
-        return
-      }
-
-      // Move to the next position
-      osmdRef.current.cursor.next()
       const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
 
       if (notesUnderCursor?.length > 0) {
         const notes = extractNotesInfo(notesUnderCursor)
 
         if (notes.length > 0) {
-          // Check if ALL notes at this position are tied
+          // Jos kaikki nuotit ovat sidottuja, siirry automaattisesti
           const allTied = notes.every(note => note.isTied)
 
           if (allTied) {
-            logger.info('ALL notes at this position are tied - auto-advancing')
-
-            // If all notes are tied, auto-advance to the next position
+            // Pieni viive renderöinnin varmistamiseksi
             setTimeout(() => {
               handleNextNote()
             }, 10)
           } else {
-            // At least one note needs to be played, proceed normally
             if (onNoteSelected) {
               onNoteSelected(notes, { autoPlay: autoPlayEnabled })
             }
           }
         }
       }
-    } catch (err) {
-      logger.error('Error navigating to next note:', err)
-    }
-  }, [onNoteSelected, autoPlayEnabled, isLoaded])
+    }, [onNoteSelected, autoPlayEnabled])
 
-  const handlePrevNote = useCallback(() => {
-    if (!osmdRef.current) return
-    if (!isLoaded) return
-
-    try {
-      // Make sure the cursor exists
-      if (!osmdRef.current.cursor) {
-        logger.warn('Cursor not available yet')
-        return
+    // Navigointifunktiot
+    const handleNextNote = useCallback(() => {
+      if (!osmdRef.current || !isLoaded) return
+      try {
+        if (!osmdRef.current.cursor) return
+        osmdRef.current.cursor.next()
+        processCursorNotes()
+      } catch (err) {
+        logger.error('Error navigating next:', err)
       }
+    }, [isLoaded, processCursorNotes])
 
-      osmdRef.current.cursor.previous()
-      const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
-
-      if (notesUnderCursor?.length > 0 && onNoteSelected) {
-        const notes = extractNotesInfo(notesUnderCursor)
-        if (notes.length > 0) {
-          onNoteSelected(notes, { autoPlay: autoPlayEnabled })
-        }
+    const handlePrevNote = useCallback(() => {
+      if (!osmdRef.current || !isLoaded) return
+      try {
+        if (!osmdRef.current.cursor) return
+        osmdRef.current.cursor.previous()
+        processCursorNotes()
+      } catch (err) {
+        logger.error('Error navigating prev:', err)
       }
-    } catch (err) {
-      logger.error('Error navigating to previous note:', err)
-    }
-  }, [onNoteSelected, autoPlayEnabled, isLoaded])
+    }, [isLoaded, processCursorNotes])
 
-  const handleResetCursor = useCallback(() => {
-    if (!osmdRef.current) return
-    if (!isLoaded) return
-
-    try {
-      // Make sure the cursor exists
-      if (!osmdRef.current.cursor) {
-        logger.warn('Cursor not available yet')
-        return
+    const handleResetCursor = useCallback(() => {
+      if (!osmdRef.current || !isLoaded) return
+      try {
+        if (!osmdRef.current.cursor) return
+        osmdRef.current.cursor.reset()
+        processCursorNotes()
+      } catch (err) {
+        logger.error('Error resetting cursor:', err)
       }
+    }, [isLoaded, processCursorNotes])
 
-      osmdRef.current.cursor.reset()
-      // Get notes under cursor after reset
-      const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
-
-      if (notesUnderCursor?.length > 0 && onNoteSelected) {
-        const notes = extractNotesInfo(notesUnderCursor)
-        if (notes.length > 0) {
-          onNoteSelected(notes, { autoPlay: autoPlayEnabled })
-        }
-      }
-    } catch (err) {
-      logger.error('Error resetting cursor:', err)
-    }
-  }, [onNoteSelected, autoPlayEnabled, isLoaded])
-
-  // Toggle handlers for settings
-  const toggleAutoAdvance = () => {
-    const newValue = !autoAdvanceEnabled
-    setAutoAdvanceEnabled(newValue)
-
-    // Notify parent component of the change
-    if (onSettingsChange) {
-      onSettingsChange({ autoAdvance: newValue })
-    }
-  }
-
-  const toggleAutoPlay = () => {
-    const newValue = !autoPlayEnabled
-    setAutoPlayEnabled(newValue)
-
-    // Notify parent component of the change
-    if (onSettingsChange) {
-      onSettingsChange({ autoPlay: newValue })
-    }
-  }
-
-  // Add toggle handler for horizontal mode
-  const toggleHorizontalMode = () => {
-    const newValue = !horizontalMode
-    setHorizontalMode(newValue)
-
-    // If OSMD is already initialized, update its options and reload the score
-    if (osmdRef.current && isInitialized && scoreUrl) {
-      // We'll reload the score to apply the new horizontal mode setting
-      loadScore(scoreUrl)
-    }
-  }
-
-  // Expose cursor control functions globally
-  useEffect(() => {
-    // Make cursor navigation functions accessible to other components
-    window.notationCursor = {
+    // Tarjotaan funktiot parent-komponentille ref:n kautta
+    useImperativeHandle(ref, () => ({
       next: handleNextNote,
       previous: handlePrevNote,
       reset: handleResetCursor,
-      autoAdvance: autoAdvanceEnabled,
-    }
+      get autoAdvance() {
+        return autoAdvanceEnabled
+      },
+    }))
 
-    // Cleanup on unmount
-    return () => {
-      window.notationCursor = null
-    }
-  }, [handleNextNote, handlePrevNote, handleResetCursor, autoAdvanceEnabled])
+    // Zoom synkronointi propsista
+    useEffect(() => {
+      setZoom(initialZoom)
+    }, [initialZoom])
 
-  // Handle score selection change
-  const handleScoreChange = e => {
-    const scoreId = e.target.value
-    setSelectedScore(scoreId)
+    // Score loading logic
+    const loadScore = useCallback(
+      async url => {
+        if (!osmdRef.current || !url) return
 
-    const selectedScoreData = SAMPLE_SCORES.find(score => score.id === scoreId)
-    if (selectedScoreData && onScoreChange) {
-      onScoreChange(selectedScoreData.url)
-    }
-  }
+        setIsLoaded(false)
+        setScoreLoaded(false)
+        setError(null)
 
-  // Handle file upload
-  const handleFileUpload = e => {
-    const file = e.target.files[0]
-    if (!file) return
+        try {
+          let containerWidth = 800
+          if (osmdContainerRef.current?.parentElement) {
+            containerWidth = osmdContainerRef.current.parentElement.clientWidth - 20
+          }
 
-    // Check if file is MusicXML
-    if (
-      file.name.endsWith('.xml') ||
-      file.name.endsWith('.musicxml') ||
-      file.name.endsWith('.mxl')
-    ) {
-      // Create a URL for the file
-      const fileUrl = URL.createObjectURL(file)
-      if (onScoreChange) {
-        onScoreChange(fileUrl)
+          // Asetukset horizontal mode huomioiden
+          if (horizontalMode) {
+            osmdRef.current.setOptions({
+              ...defaultOptions,
+              renderSingleHorizontalStaffline: true,
+              autoResize: false,
+              pageFormat: 'Endless',
+            })
+            if (osmdRef.current.EngravingRules) {
+              osmdRef.current.EngravingRules.PageWidth = containerWidth
+            }
+          } else {
+            osmdRef.current.setOptions({
+              ...defaultOptions,
+              renderSingleHorizontalStaffline: false,
+              autoResize: true,
+              pageFormat: 'Endless',
+            })
+          }
+
+          await osmdRef.current.load(url)
+          setScoreLoaded(true)
+
+          // Container tyylit
+          if (osmdContainerRef.current) {
+            if (horizontalMode) {
+              osmdContainerRef.current.style.width = containerWidth + 'px'
+              osmdContainerRef.current.style.overflowX = 'visible'
+              osmdContainerRef.current.parentElement.style.overflowX = 'auto'
+            } else {
+              osmdContainerRef.current.style.width = '100%'
+              osmdContainerRef.current.style.overflowX = 'auto'
+            }
+          }
+
+          if (osmdRef.current.IsReadyToRender()) {
+            setTimeout(() => {
+              if (osmdRef.current) {
+                osmdRef.current.Zoom = zoom
+                osmdRef.current.render()
+              }
+            }, 50)
+
+            // Kursorin alustus viiveellä
+            setTimeout(() => {
+              if (osmdRef.current) {
+                try {
+                  if (!osmdRef.current.cursor) {
+                    osmdRef.current.enableOrDisableCursors(true)
+                  }
+                  if (osmdRef.current.cursor) {
+                    osmdRef.current.cursor.show()
+                  }
+                } catch (err) {
+                  logger.warn('Error setting up cursor:', err)
+                }
+              }
+            }, 100)
+
+            setIsLoaded(true)
+          } else {
+            setError('Score loaded but not ready to render')
+          }
+        } catch (err) {
+          logger.error('Error loading score:', err)
+          setError('Failed to load sheet music')
+        }
+      },
+      [zoom, horizontalMode],
+    )
+
+    // OSMD alustus
+    useEffect(() => {
+      if (!osmdContainerRef.current) return
+
+      const container = osmdContainerRef.current
+      while (container.firstChild) {
+        container.removeChild(container.firstChild)
       }
 
-      // Reset the select to a custom option
-      setSelectedScore('custom')
-    } else {
-      alert('Please upload a MusicXML file (.xml, .musicxml, or .mxl)')
+      try {
+        container.style.maxWidth = '100%'
+        container.style.width = '100%'
+
+        if (horizontalMode) {
+          const parentWidth = container.parentElement ? container.parentElement.clientWidth : 800
+          const osmd = new OpenSheetMusicDisplay(container, {
+            ...defaultOptions,
+            renderSingleHorizontalStaffline: true,
+            pageFormat: 'Endless',
+            autoResize: false,
+            width: parentWidth - 20,
+          })
+          osmd.setLogLevel('warn')
+          osmdRef.current = osmd
+        } else {
+          const osmd = new OpenSheetMusicDisplay(container, {
+            ...defaultOptions,
+            renderSingleHorizontalStaffline: false,
+            pageFormat: 'Endless',
+            autoResize: true,
+          })
+          osmd.setLogLevel('warn')
+          osmdRef.current = osmd
+        }
+
+        setIsInitialized(true)
+      } catch (err) {
+        logger.error('Error initializing OSMD:', err)
+        setError('Failed to initialize sheet music display')
+      }
+
+      return () => {
+        if (osmdRef.current) osmdRef.current = null
+        if (container) {
+          while (container.firstChild) container.removeChild(container.firstChild)
+        }
+        setIsInitialized(false)
+      }
+    }, [horizontalMode])
+
+    // Lataa nuotti kun alustettu
+    useEffect(() => {
+      if (isInitialized && osmdRef.current && scoreUrl) {
+        loadScore(scoreUrl)
+      }
+    }, [scoreUrl, loadScore, isInitialized])
+
+    // Zoom päivitys
+    useEffect(() => {
+      if (osmdRef.current && isLoaded && scoreLoaded) {
+        try {
+          if (osmdRef.current.IsReadyToRender()) {
+            osmdRef.current.Zoom = zoom
+            osmdRef.current.render()
+          }
+        } catch (err) {
+          logger.error('Error applying zoom:', err)
+        }
+      }
+    }, [zoom, isLoaded, scoreLoaded])
+
+    const handleZoomIn = () => {
+      if (osmdRef.current && isLoaded && scoreLoaded) {
+        const newZoom = Math.min(zoom * 1.2, 3.0)
+        setZoom(newZoom)
+        if (onZoomIn) onZoomIn(newZoom)
+      }
     }
-  }
 
-  return (
-    <NotationDisplayContainer>
-      {error && <div className="error-message">{error}</div>}
+    const handleZoomOut = () => {
+      if (osmdRef.current && isLoaded && scoreLoaded) {
+        const newZoom = Math.max(zoom / 1.2, 0.5)
+        setZoom(newZoom)
+        if (onZoomOut) onZoomOut(newZoom)
+      }
+    }
 
-      {!isLoaded && !error && <div className="loading-message">Loading sheet music...</div>}
+    const toggleAutoAdvance = () => {
+      const newValue = !autoAdvanceEnabled
+      setAutoAdvanceEnabled(newValue)
+      if (onSettingsChange) onSettingsChange({ autoAdvance: newValue })
+    }
 
-      <ControlsContainer>
-        <ZoomControls>
-          <Button onClick={handleZoomOut}>
-            <span className="icon">-</span>
-          </Button>
-          <ZoomLevel>{Math.round(zoom * 100)}%</ZoomLevel>
-          <Button onClick={handleZoomIn}>
-            <span className="icon">+</span>
-          </Button>
-        </ZoomControls>
+    const toggleAutoPlay = () => {
+      const newValue = !autoPlayEnabled
+      setAutoPlayEnabled(newValue)
+      if (onSettingsChange) onSettingsChange({ autoPlay: newValue })
+    }
 
-        <ScoreSelectorControls>
-          <SelectorLabel>Score:</SelectorLabel>
-          <Select value={selectedScore} onChange={handleScoreChange}>
-            {SAMPLE_SCORES.map(score => (
-              <option key={score.id} value={score.id}>
-                {score.name}
-              </option>
-            ))}
-            {selectedScore === 'custom' && <option value="custom">Custom Upload</option>}
-          </Select>
+    const toggleHorizontalMode = () => {
+      setHorizontalMode(prev => !prev)
+    }
 
-          <UploadButton>
-            Upload
-            <FileInput type="file" accept=".xml,.musicxml,.mxl" onChange={handleFileUpload} />
-          </UploadButton>
-        </ScoreSelectorControls>
+    const handleScoreChange = e => {
+      const scoreId = e.target.value
+      setSelectedScore(scoreId)
+      const selectedScoreData = SAMPLE_SCORES.find(score => score.id === scoreId)
+      if (selectedScoreData && onScoreChange) {
+        onScoreChange(selectedScoreData.url)
+      }
+    }
 
-        <CursorControls>
-          <NavigationButton onClick={handleResetCursor} disabled={!isLoaded}>
-            Reset
-          </NavigationButton>
-          <NavigationButton onClick={handlePrevNote} disabled={!isLoaded}>
-            Previous
-          </NavigationButton>
-          <NavigationButton onClick={handleNextNote} disabled={!isLoaded}>
-            Next
-          </NavigationButton>
+    const handleFileUpload = e => {
+      const file = e.target.files[0]
+      if (!file) return
+      if (
+        file.name.endsWith('.xml') ||
+        file.name.endsWith('.musicxml') ||
+        file.name.endsWith('.mxl')
+      ) {
+        const fileUrl = URL.createObjectURL(file)
+        if (onScoreChange) onScoreChange(fileUrl)
+        setSelectedScore('custom')
+      } else {
+        alert('Please upload a MusicXML file (.xml, .musicxml, or .mxl)')
+      }
+    }
 
-          {/* Settings toggles */}
-          <SettingsContainer>
-            <SettingsToggle>
-              <input
-                type="checkbox"
-                id="auto-advance"
-                checked={autoAdvanceEnabled}
-                onChange={toggleAutoAdvance}
-              />
-              <label htmlFor="auto-advance">Auto-advance</label>
-            </SettingsToggle>
+    return (
+      <NotationDisplayContainer>
+        {error && <div className="error-message">{error}</div>}
+        {!isLoaded && !error && <div className="loading-message">Loading sheet music...</div>}
 
-            <SettingsToggle>
-              <input
-                type="checkbox"
-                id="auto-play"
-                checked={autoPlayEnabled}
-                onChange={toggleAutoPlay}
-              />
-              <label htmlFor="auto-play">Auto-play notes</label>
-            </SettingsToggle>
+        <ControlsContainer>
+          <ZoomControls>
+            <Button onClick={handleZoomOut}>
+              <span className="icon">-</span>
+            </Button>
+            <ZoomLevel>{Math.round(zoom * 100)}%</ZoomLevel>
+            <Button onClick={handleZoomIn}>
+              <span className="icon">+</span>
+            </Button>
+          </ZoomControls>
 
-            {/* Horizontal mode toggle */}
-            <SettingsToggle>
-              <input
-                type="checkbox"
-                id="horizontal-mode"
-                checked={horizontalMode}
-                onChange={toggleHorizontalMode}
-              />
-              <label htmlFor="horizontal-mode">Horizontal mode</label>
-            </SettingsToggle>
-          </SettingsContainer>
-        </CursorControls>
-      </ControlsContainer>
+          <ScoreSelectorControls>
+            <SelectorLabel>Score:</SelectorLabel>
+            <Select value={selectedScore} onChange={handleScoreChange}>
+              {SAMPLE_SCORES.map(score => (
+                <option key={score.id} value={score.id}>
+                  {score.name}
+                </option>
+              ))}
+              {selectedScore === 'custom' && <option value="custom">Custom Upload</option>}
+            </Select>
 
-      <HorizontalScrollContainer>
-        <NotationCanvas ref={osmdContainerRef} />
-      </HorizontalScrollContainer>
-    </NotationDisplayContainer>
-  )
-}
+            <UploadButton>
+              Upload
+              <FileInput type="file" accept=".xml,.musicxml,.mxl" onChange={handleFileUpload} />
+            </UploadButton>
+          </ScoreSelectorControls>
+
+          <CursorControls>
+            <NavigationButton onClick={handleResetCursor} disabled={!isLoaded}>
+              Reset
+            </NavigationButton>
+            <NavigationButton onClick={handlePrevNote} disabled={!isLoaded}>
+              Previous
+            </NavigationButton>
+            <NavigationButton onClick={handleNextNote} disabled={!isLoaded}>
+              Next
+            </NavigationButton>
+
+            <SettingsContainer>
+              <SettingsToggle>
+                <input
+                  type="checkbox"
+                  id="auto-advance"
+                  checked={autoAdvanceEnabled}
+                  onChange={toggleAutoAdvance}
+                />
+                <label htmlFor="auto-advance">Auto-advance</label>
+              </SettingsToggle>
+
+              <SettingsToggle>
+                <input
+                  type="checkbox"
+                  id="auto-play"
+                  checked={autoPlayEnabled}
+                  onChange={toggleAutoPlay}
+                />
+                <label htmlFor="auto-play">Auto-play notes</label>
+              </SettingsToggle>
+
+              <SettingsToggle>
+                <input
+                  type="checkbox"
+                  id="horizontal-mode"
+                  checked={horizontalMode}
+                  onChange={toggleHorizontalMode}
+                />
+                <label htmlFor="horizontal-mode">Horizontal mode</label>
+              </SettingsToggle>
+            </SettingsContainer>
+          </CursorControls>
+        </ControlsContainer>
+
+        <HorizontalScrollContainer>
+          <NotationCanvas ref={osmdContainerRef} />
+        </HorizontalScrollContainer>
+      </NotationDisplayContainer>
+    )
+  },
+)
+
+NotationDisplay.displayName = 'NotationDisplay'
 
 export default NotationDisplay

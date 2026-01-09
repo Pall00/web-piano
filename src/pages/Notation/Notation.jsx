@@ -1,5 +1,5 @@
 // src/pages/Notation/Notation.jsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react' // Lisätty useRef
 import { motion } from 'framer-motion'
 import NotationDisplay from '../../components/NotationDisplay'
 import useNoteMatching from '../../hooks/useNoteMatching'
@@ -19,6 +19,9 @@ const Notation = () => {
   const [scoreUrl, setScoreUrl] = useState(DEFAULT_SCORE_URL)
   const [currentNotes, setCurrentNotes] = useState([])
   const [zoom, setZoom] = useState(1.0)
+
+  // Create a ref to control the NotationDisplay component
+  const notationRef = useRef(null)
 
   // Settings moved to the top controls
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true)
@@ -47,18 +50,15 @@ const Notation = () => {
         if (notesToPlay.length > 1) {
           // Play as a chord if we have the function available
           if (window.playPianoChord) {
-            // Play chord with demo source tag
             window.playPianoChord(
               notesToPlay.map(note => note.name),
               { source: 'demo' },
             )
           } else if (window.playPianoNote) {
-            // Otherwise play notes individually with a tiny delay
             notesToPlay.forEach((note, index) => {
               setTimeout(() => {
-                // Play each note with demo source tag
                 window.playPianoNote(note.name, { source: 'demo' })
-              }, index * 20) // 20ms delay between notes
+              }, index * 20)
             })
           }
         } else if (window.playPianoNote) {
@@ -99,8 +99,9 @@ const Notation = () => {
     if (isMatched && autoAdvanceEnabled && currentNotes.length > 0) {
       // Add a slight delay before advancing to next note
       const timer = setTimeout(() => {
-        if (window.notationCursor?.next) {
-          window.notationCursor.next()
+        // Use the ref instead of window object
+        if (notationRef.current && notationRef.current.next) {
+          notationRef.current.next()
         }
       }, 100) // Short delay for faster response
 
@@ -139,6 +140,7 @@ const Notation = () => {
         <NotationSection>
           <NotationWrapper>
             <NotationDisplay
+              ref={notationRef} // Pass the ref here
               scoreUrl={scoreUrl}
               onNoteSelected={handleNoteSelected}
               initialZoom={zoom}
