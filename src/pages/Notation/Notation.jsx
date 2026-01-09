@@ -1,3 +1,4 @@
+// src/pages/Notation/Notation.jsx
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import NotationDisplay from '../../components/NotationDisplay'
@@ -30,6 +31,13 @@ const Notation = () => {
   const { activeNotes, matchedNotes, setCurrentNotesUnderCursor, isMatched } = useNoteMatching()
   const { playScoreNotes } = useScoreAudio()
 
+  // Poistetaan opastus kun komponentti unmounttaa
+  useEffect(() => {
+    return () => {
+      if (window.setPianoGuidance) window.setPianoGuidance([])
+    }
+  }, [])
+
   // Event Handlers
   const handleNoteSelected = (notes, options = {}) => {
     setCurrentNotes(notes)
@@ -39,9 +47,14 @@ const Notation = () => {
     const shouldAutoPlay = options.autoPlay !== undefined ? options.autoPlay : autoPlayEnabled
     playScoreNotes(notes, shouldAutoPlay)
 
-    // Visual highlight on piano
-    if (window.highlightPianoChord && notes.length > 0) {
-      const notesToHighlight = notes.filter(n => !n.isTied).map(n => n.name)
+    // Visual highlight on piano (PÄIVITETTY)
+    // Nyt käytämme setPianoGuidancea, joka pitää valot päällä kunnes toisin sanotaan
+    const notesToHighlight = notes.filter(n => !n.isTied).map(n => n.name)
+
+    if (window.setPianoGuidance) {
+      window.setPianoGuidance(notesToHighlight)
+    } else if (window.highlightPianoChord && notesToHighlight.length > 0) {
+      // Fallback
       window.highlightPianoChord(notesToHighlight)
     }
   }
@@ -49,6 +62,8 @@ const Notation = () => {
   const handleScoreChange = url => {
     setScoreUrl(url)
     setCurrentNotes([])
+    // Tyhjennetään pianon valot kun kappale vaihtuu
+    if (window.setPianoGuidance) window.setPianoGuidance([])
   }
 
   const handleSettingsChange = settings => {
@@ -85,7 +100,7 @@ const Notation = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      style={{ width: '100%', height: '100%' }} // Ensure motion div takes full space
+      style={{ width: '100%', height: '100%' }}
     >
       <NotationContainer>
         {/* VASEN SARAKE: Nuotit ja kontrollit */}
@@ -114,8 +129,6 @@ const Notation = () => {
             matchedNotes={matchedNotes}
             isMatched={isMatched}
           />
-
-          {/* Tähän voi myöhemmin lisätä esim. Metronomin tai Soittohistorian */}
         </Sidebar>
       </NotationContainer>
     </motion.div>
