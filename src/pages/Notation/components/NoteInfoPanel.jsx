@@ -1,4 +1,3 @@
-import React from 'react'
 import { InfoPanel, NoteList, NoteItem, MatchStatus } from '../Notation.styles'
 
 const NoteInfoPanel = ({ currentNotes, activeNotes, matchedNotes, isMatched }) => {

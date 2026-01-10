@@ -1,5 +1,5 @@
 // src/pages/Notation/Notation.jsx
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import NotationDisplay from '../../components/NotationDisplay'
 import useNoteMatching from '../../hooks/useNoteMatching'
@@ -38,38 +38,42 @@ const Notation = () => {
     }
   }, [])
 
-  // Event Handlers
-  const handleNoteSelected = (notes, options = {}) => {
-    setCurrentNotes(notes)
-    setCurrentNotesUnderCursor(notes)
+  // --- KORJAUS ALKAA: Käytetään useCallbackia ---
 
-    // Autoplay logic delegated to hook
-    const shouldAutoPlay = options.autoPlay !== undefined ? options.autoPlay : autoPlayEnabled
-    playScoreNotes(notes, shouldAutoPlay)
+  const handleNoteSelected = useCallback(
+    (notes, options = {}) => {
+      setCurrentNotes(notes)
+      setCurrentNotesUnderCursor(notes)
 
-    // Visual highlight on piano (PÄIVITETTY)
-    // Nyt käytämme setPianoGuidancea, joka pitää valot päällä kunnes toisin sanotaan
-    const notesToHighlight = notes.filter(n => !n.isTied).map(n => n.name)
+      const shouldAutoPlay = options.autoPlay !== undefined ? options.autoPlay : autoPlayEnabled
 
-    if (window.setPianoGuidance) {
-      window.setPianoGuidance(notesToHighlight)
-    } else if (window.highlightPianoChord && notesToHighlight.length > 0) {
-      // Fallback
-      window.highlightPianoChord(notesToHighlight)
-    }
-  }
+      // VÄLITÄ options.bpm
+      playScoreNotes(notes, shouldAutoPlay, options.bpm)
 
-  const handleScoreChange = url => {
+      // Visual highlight on piano
+      const notesToHighlight = notes.filter(n => !n.isTied).map(n => n.name)
+
+      if (window.setPianoGuidance) {
+        window.setPianoGuidance(notesToHighlight)
+      } else if (window.highlightPianoChord && notesToHighlight.length > 0) {
+        window.highlightPianoChord(notesToHighlight)
+      }
+    },
+    [autoPlayEnabled, playScoreNotes, setCurrentNotesUnderCursor],
+  ) // Riippuvuudet
+
+  const handleScoreChange = useCallback(url => {
     setScoreUrl(url)
     setCurrentNotes([])
-    // Tyhjennetään pianon valot kun kappale vaihtuu
     if (window.setPianoGuidance) window.setPianoGuidance([])
-  }
+  }, [])
 
-  const handleSettingsChange = settings => {
+  const handleSettingsChange = useCallback(settings => {
     if (settings.autoPlay !== undefined) setAutoPlayEnabled(settings.autoPlay)
     if (settings.autoAdvance !== undefined) setAutoAdvanceEnabled(settings.autoAdvance)
-  }
+  }, [])
+
+  // --- KORJAUS PÄÄTTYY ---
 
   // Auto-advance logic
   useEffect(() => {

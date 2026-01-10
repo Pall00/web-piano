@@ -134,7 +134,7 @@ export const NoteItem = styled.li`
   border-radius: ${({ theme }) => theme.borderRadius.small};
 
   /* Dynaaminen taustaväri tilan mukaan */
-  background-color: ${({ theme, $isCorrect, $isPressed, $isTied }) => {
+  background-color: ${({ $isCorrect, $isPressed, $isTied }) => {
     if ($isTied) return 'rgba(0,0,0,0.03)'
     if ($isCorrect) return 'rgba(76, 175, 80, 0.15)'
     if ($isPressed) return 'rgba(33, 150, 243, 0.15)'

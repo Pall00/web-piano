@@ -24,7 +24,6 @@ export const setPianoInstance = instance => {
     highlightChord(noteNames)
   }
 
-  // UUSI: Globaali funktio pysyvälle opastukselle
   window.setPianoGuidance = noteNames => {
     setGuidanceNotes(noteNames)
   }
@@ -60,25 +59,40 @@ export const playNote = (noteName, options = {}) => {
       return
     }
 
-    logger.info(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
+    logger.debug(`Playing note: ${noteName} (normalized: ${normalizedNote})`)
 
+    // Visuaalinen notify (pressed)
     if (window.pianoEvents) {
       window.pianoEvents.notify({
         note: normalizedNote,
         action: 'pressed',
         source: options.source || 'program',
       })
+    }
 
-      setTimeout(() => {
+    // --- ÄÄNEN SOITTO ---
+    pianoInstance.playNote(normalizedNote)
+
+    // --- ÄÄNEN SAMMUTUS (Duration tai default) ---
+    // Jos duration annettu (sekunneissa), sammutetaan sen jälkeen.
+    // Jos ei, käytetään oletusta (300ms) visuaaliseen vapautukseen.
+    const durationMs = options.duration ? options.duration * 1000 : 300
+
+    setTimeout(() => {
+      // 1. Sammuta ääni jos mahdollista
+      if (pianoInstance.stopNote) {
+        pianoInstance.stopNote(normalizedNote)
+      }
+
+      // 2. Visuaalinen notify (released)
+      if (window.pianoEvents) {
         window.pianoEvents.notify({
           note: normalizedNote,
           action: 'released',
           source: options.source || 'program',
         })
-      }, 300)
-    }
-
-    pianoInstance.playNote(normalizedNote)
+      }
+    }, durationMs)
   } catch (err) {
     logger.error('Error playing note:', err)
   }
@@ -114,7 +128,6 @@ export const highlightChord = noteNames => {
   })
 }
 
-// UUSI: Exportattu funktio opastusnuoteille
 export const setGuidanceNotes = noteNames => {
   if (!pianoInstance) return
   try {
@@ -135,5 +148,5 @@ export default {
   playChord,
   highlightNote,
   highlightChord,
-  setGuidanceNotes, // Lisätty
+  setGuidanceNotes,
 }
