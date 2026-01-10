@@ -1,65 +1,74 @@
-// src/pages/Flashcards/Flashcards.jsx
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  FlashcardsContainer,
-  PageTitle,
-  FlashcardSection,
-  NoCardsMessage,
-} from './Flashcards.styles'
+// TÄSSÄ OLI VIRHE: Lisätään aaltosulkeet { } ympärille
 import { useFlashcards } from '../../hooks/useFlashcards'
 import Flashcard from '../../components/Flashcard'
-import CategorySelector from '../../components/CategorySelector'
 import FlashcardControls from '../../components/FlashcardControls'
+import CategorySelector from '../../components/CategorySelector'
+import { PageContainer, ContentArea } from './Flashcards.styles'
 
 const Flashcards = () => {
   const {
-    currentCard,
-    nextCard,
-    prevCard,
     flashcardSets,
     activeSetId,
-    selectCardSet,
+    currentCard,
     currentCardIndex,
+    selectCardSet,
+    nextCard,
+    prevCard,
   } = useFlashcards()
 
-  const activeSet = flashcardSets.find(set => set.id === activeSetId)
-  const totalCards = activeSet?.cards?.length || 0
+  // TILA KÄÄNTÄMISELLE
+  const [isFlipped, setIsFlipped] = useState(false)
+
+  // Kun kortti vaihtuu, käännä kortti aina etupuolelle
+  useEffect(() => {
+    setIsFlipped(false)
+  }, [currentCardIndex, activeSetId])
+
+  const handleSetSelect = setId => {
+    selectCardSet(setId)
+    setIsFlipped(false)
+  }
+
+  const handleCardFlip = () => {
+    setIsFlipped(prev => !prev)
+  }
 
   return (
-    <FlashcardsContainer>
-      <PageTitle>Piano Flashcards</PageTitle>
-
+    <PageContainer>
       <CategorySelector
         categories={flashcardSets}
         activeCategory={activeSetId}
-        onSelectCategory={selectCardSet}
+        onSelectCategory={handleSetSelect}
       />
 
-      <FlashcardSection>
+      <ContentArea>
         <AnimatePresence mode="wait">
           {currentCard ? (
             <motion.div
               key={currentCard.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
+              style={{ width: '100%', display: 'flex', justifyContent: 'center' }}
             >
-              <Flashcard card={currentCard} />
-
-              <FlashcardControls
-                onPrev={prevCard}
-                onNext={nextCard}
-                currentIndex={currentCardIndex}
-                totalCards={totalCards}
-              />
+              <Flashcard card={currentCard} isFlipped={isFlipped} onFlip={handleCardFlip} />
             </motion.div>
           ) : (
-            <NoCardsMessage>No flashcards available. Select a category to begin.</NoCardsMessage>
+            <div className="no-cards">Valitse kategoria aloittaaksesi</div>
           )}
         </AnimatePresence>
-      </FlashcardSection>
-    </FlashcardsContainer>
+
+        <FlashcardControls
+          onNext={nextCard}
+          onPrev={prevCard}
+          currentIndex={currentCardIndex}
+          totalCards={flashcardSets.find(s => s.id === activeSetId)?.cards.length || 0}
+        />
+      </ContentArea>
+    </PageContainer>
   )
 }
 

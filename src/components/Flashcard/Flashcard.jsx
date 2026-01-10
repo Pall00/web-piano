@@ -1,65 +1,74 @@
 // src/components/Flashcard/Flashcard.jsx
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import {
-  FlashcardContainer,
-  CardFace,
-  QuestionSide,
-  AnswerSide,
-  CardTitle,
-  CardContent,
-} from './Flashcard.styles'
-import NotationDisplay from '../NotationDisplay'
+import { useMemo } from 'react'
+import { CardContainer, CardInner, CardFront, CardBack, CardContent } from './Flashcard.styles'
+import FlashcardNotation from './FlashcardNotation'
+import { generateSingleNoteXML } from '../../utils/xmlGenerator'
 
-const Flashcard = ({ card }) => {
-  const [isFlipped, setIsFlipped] = useState(false)
-
-  const handleFlip = () => {
-    setIsFlipped(!isFlipped)
-  }
-
-  // Simple animation variants
-  const cardVariants = {
-    front: {
-      rotateY: 0,
-      transition: { duration: 0.4 },
-    },
-    back: {
-      rotateY: 180,
-      transition: { duration: 0.4 },
-    },
-  }
-
-  // Check if the card has notation data
-  const hasNotation = card.type === 'notation' && card.notation
+const Flashcard = ({ card, isFlipped, onFlip }) => {
+  // Generoidaan XML vain jos kortin tyyppi on 'notation' ja data on muuttunut
+  // Tämä parantaa suorituskykyä estämällä turhat uudelleenlaskennat
+  const notationXml = useMemo(() => {
+    if (card.type === 'notation' && card.noteName) {
+      return generateSingleNoteXML(card.noteName, card.clef)
+    }
+    return null
+  }, [card])
 
   return (
-    <FlashcardContainer onClick={handleFlip}>
-      <motion.div
-        className="card-inner"
-        initial="front"
-        animate={isFlipped ? 'back' : 'front'}
-        variants={cardVariants}
-      >
-        <QuestionSide as={CardFace}>
-          <CardTitle>Question</CardTitle>
+    <CardContainer onClick={onFlip}>
+      <CardInner $isFlipped={isFlipped}>
+        {/* KORTIN ETUPUOLI */}
+        <CardFront>
           <CardContent>
-            {hasNotation ? (
-              <>
-                <p>{card.question}</p>
-                <NotationDisplay note={card.notation} />
-              </>
+            {/* Jos tyyppi on notation, näytä viivasto, muuten teksti */}
+            {card.type === 'notation' ? (
+              <div
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                }}
+              >
+                <FlashcardNotation xmlData={notationXml} />
+                <span style={{ fontSize: '1rem', color: '#888', marginTop: '-10px' }}>
+                  Mikä nuotti?
+                </span>
+              </div>
             ) : (
-              card.question
+              <h2>{card.front}</h2>
+            )}
+
+            <span
+              style={{
+                fontSize: '0.8rem',
+                color: '#aaa',
+                marginTop: '1.5rem',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+              }}
+            >
+              Klikkaa kääntääksesi
+            </span>
+          </CardContent>
+        </CardFront>
+
+        {/* KORTIN KÄÄNTÖPUOLI */}
+        <CardBack>
+          <CardContent>
+            <h2>{card.back}</h2>
+
+            {card.type === 'notation' && (
+              <div style={{ marginTop: '1rem', color: '#eee' }}>
+                <p>
+                  Soita pianolla: <strong>{card.noteName}</strong>
+                </p>
+              </div>
             )}
           </CardContent>
-        </QuestionSide>
-        <AnswerSide as={CardFace}>
-          <CardTitle>Answer</CardTitle>
-          <CardContent>{card.answer}</CardContent>
-        </AnswerSide>
-      </motion.div>
-    </FlashcardContainer>
+        </CardBack>
+      </CardInner>
+    </CardContainer>
   )
 }
 
