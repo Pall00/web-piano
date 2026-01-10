@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardR
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay'
 import { SAMPLE_SCORES } from '../../data/scoreData'
 import logger from '../../utils/logger'
-import { extractNotesInfo } from '../../utils/osmdHelpers'
+import { parseScore } from '../../utils/ScoreParser'
 import {
   NotationDisplayContainer,
   NotationCanvas,
@@ -27,6 +27,7 @@ import {
 const DEFAULT_SCORE_URL =
   'https://opensheetmusicdisplay.github.io/demo/MuzioClementi_SonatinaOpus36No1_Part1.xml'
 
+// Configuration options for the OpenSheetMusicDisplay library
 const defaultOptions = {
   autoResize: true,
   drawTitle: true,
@@ -54,27 +55,40 @@ const NotationDisplay = forwardRef(
     },
     ref,
   ) => {
+    // References for OSMD instance and DOM container
     const osmdContainerRef = useRef(null)
     const osmdRef = useRef(null)
-    const playbackTimeoutRef = useRef(null) // Ref ajastimelle
+    const playbackTimeoutRef = useRef(null)
 
+    // Component State
     const [isLoaded, setIsLoaded] = useState(false)
     const [zoom, setZoom] = useState(initialZoom)
+
+    // Zoom Ref - Prevents unnecessary re-runs of loadScore when zooming
+    const zoomRef = useRef(zoom)
+    useEffect(() => {
+      zoomRef.current = zoom
+    }, [zoom])
+
     const [error, setError] = useState(null)
     const [isInitialized, setIsInitialized] = useState(false)
     const [selectedScore, setSelectedScore] = useState(SAMPLE_SCORES[0].id)
     const [scoreLoaded, setScoreLoaded] = useState(false)
 
-    // Asetukset
+    // Parsed Score Data State
+    const [scoreEvents, setScoreEvents] = useState([])
+    const [currentEventIndex, setCurrentEventIndex] = useState(0)
+
+    // User Settings
     const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true)
     const [autoPlayEnabled, setAutoPlayEnabled] = useState(true)
     const [horizontalMode, setHorizontalMode] = useState(false)
 
-    // Playback state
+    // Playback State
     const [isPlaying, setIsPlaying] = useState(false)
     const [bpm, setBpm] = useState(100)
 
-    // Pysäytä soitto jos komponentti poistuu
+    // Cleanup on unmount
     useEffect(() => {
       return () => {
         if (playbackTimeoutRef.current) {
@@ -83,7 +97,7 @@ const NotationDisplay = forwardRef(
       }
     }, [])
 
-    // Pysäytä soitto jos Play-tila muuttuu falseksi
+    // Clear playback timeout if playback stops
     useEffect(() => {
       if (!isPlaying && playbackTimeoutRef.current) {
         clearTimeout(playbackTimeoutRef.current)
@@ -91,121 +105,127 @@ const NotationDisplay = forwardRef(
       }
     }, [isPlaying])
 
-    // Nuottien käsittelylogiikka
-    const processCursorNotes = useCallback(() => {
-      if (!osmdRef.current?.cursor) return
+    /**
+     * CORE LOGIC: Synchronizes the visual cursor with the application state.
+     * Moves the OSMD cursor to the timestamp matching the current event index.
+     */
+    const syncToEvent = useCallback(
+      index => {
+        if (!scoreEvents || scoreEvents.length === 0) return
+        if (index < 0 || index >= scoreEvents.length) return
 
-      const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
+        const targetEvent = scoreEvents[index]
+        const osmd = osmdRef.current
 
-      if (notesUnderCursor?.length > 0) {
-        const notes = extractNotesInfo(notesUnderCursor)
+        if (osmd && osmd.cursor) {
+          try {
+            osmd.cursor.reset()
+            const iterator = osmd.cursor.Iterator
 
-        if (notes.length > 0) {
-          // Jos nuotit sidottuja, automaattinen siirto (vain jos ei olla Play-moodissa, koska Play hoitaa ajoituksen itse)
-          const allTied = notes.every(note => note.isTied)
-
-          if (allTied && !isPlaying) {
-            setTimeout(() => {
-              handleNextNote()
-            }, 10)
-          } else {
-            if (onNoteSelected) {
-              onNoteSelected(notes, { autoPlay: autoPlayEnabled })
+            // Advance cursor until we reach the target timestamp (with small float tolerance)
+            while (
+              !iterator.EndReached &&
+              iterator.CurrentSourceTimestamp.RealValue < targetEvent.timestamp - 0.001
+            ) {
+              osmd.cursor.next()
             }
+
+            osmd.cursor.update()
+          } catch (err) {
+            logger.warn('Cursor sync warning:', err)
           }
         }
-      }
-    }, [onNoteSelected, autoPlayEnabled, isPlaying])
 
-    // Navigointifunktiot
-    const handleNextNote = useCallback(() => {
-      if (!osmdRef.current || !isLoaded) return
-      try {
-        if (!osmdRef.current.cursor) return
-        osmdRef.current.cursor.next()
-        processCursorNotes()
-      } catch (err) {
-        logger.error('Error navigating next:', err)
+        // Notify parent component about the selected note
+        if (onNoteSelected) {
+          const cleanNotes = targetEvent.notes.map(n => ({
+            name: n.note,
+            midiNote: n.midi,
+            duration: n.duration, // Duration in beats
+            isTied: n.isTied,
+          }))
+
+          onNoteSelected(cleanNotes, {
+            autoPlay: autoPlayEnabled,
+            bpm: bpm,
+          })
+        }
+
+        setCurrentEventIndex(index)
+      },
+      [scoreEvents, onNoteSelected, autoPlayEnabled, bpm],
+    )
+
+    // Effect: Reset cursor to start when new data is loaded
+    useEffect(() => {
+      if (scoreEvents.length > 0 && isLoaded) {
+        syncToEvent(0)
       }
-    }, [isLoaded, processCursorNotes])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [scoreEvents, isLoaded])
+
+    // Navigation Handlers
+    const handleNextNote = useCallback(() => {
+      if (scoreEvents.length === 0) return
+      const nextIndex = currentEventIndex + 1
+      if (nextIndex < scoreEvents.length) {
+        syncToEvent(nextIndex)
+      } else {
+        setIsPlaying(false)
+      }
+    }, [scoreEvents, currentEventIndex, syncToEvent])
 
     const handlePrevNote = useCallback(() => {
-      if (!osmdRef.current || !isLoaded) return
-      try {
-        if (!osmdRef.current.cursor) return
-        osmdRef.current.cursor.previous()
-        processCursorNotes()
-      } catch (err) {
-        logger.error('Error navigating prev:', err)
-      }
-    }, [isLoaded, processCursorNotes])
+      if (scoreEvents.length === 0) return
+      const prevIndex = Math.max(0, currentEventIndex - 1)
+      syncToEvent(prevIndex)
+    }, [scoreEvents, currentEventIndex, syncToEvent])
 
     const handleResetCursor = useCallback(() => {
-      if (!osmdRef.current || !isLoaded) return
-      setIsPlaying(false) // Pysäytä soitto resetissä
-      try {
-        if (!osmdRef.current.cursor) return
-        osmdRef.current.cursor.reset()
-        processCursorNotes()
-      } catch (err) {
-        logger.error('Error resetting cursor:', err)
-      }
-    }, [isLoaded, processCursorNotes])
+      setIsPlaying(false)
+      syncToEvent(0)
+    }, [syncToEvent])
 
-    // --- PLAYBACK LOGIC START ---
+    // --- PLAYBACK LOGIC ---
 
-    // Tämä funktio suorittaa yhden askeleen ja ajastaa seuraavan
+    // recursive function to handle playback timing
     const playNextStep = useCallback(() => {
-      if (!osmdRef.current?.cursor) {
+      if (!isPlaying) return
+
+      if (currentEventIndex >= scoreEvents.length - 1) {
         setIsPlaying(false)
         return
       }
 
-      // Tarkista ollaanko lopussa
-      if (osmdRef.current.cursor.Iterator.EndReached) {
-        setIsPlaying(false)
-        return
-      }
+      const currentEvent = scoreEvents[currentEventIndex]
+      const durationInBeats = currentEvent.notes[0].duration
+      const ms = durationInBeats * (60 / bpm) * 1000
 
-      // 1. Soita nykyinen nuotti ja siirrä kursoria
-      handleNextNote()
-
-      // 2. Laske kesto seuraavaan iskuun
-      // Haetaan nuotit, jotka ovat NYT kursorin alla (siirron jälkeen)
-      const notesUnderCursor = osmdRef.current.cursor.NotesUnderCursor()
-
-      let duration = 0.25 // Oletus: neljäsosanuotti
-
-      if (notesUnderCursor && notesUnderCursor.length > 0) {
-        // Otetaan ensimmäisen nuotin pituus. OSMD cursor etenee yleensä pienimmän aika-arvon mukaan.
-        // Length.RealValue on esim 0.25 (1/4) tai 0.5 (1/2).
-        const note = notesUnderCursor[0]
-        if (note.Length && note.Length.RealValue) {
-          duration = note.Length.RealValue
-        }
-      }
-
-      // Laske millisekunnit: (Nuotin arvo * 4) * (60 / BPM) * 1000
-      // Esim: 1/4 nuotti (0.25) * 4 = 1 isku. BPM 60 = 1 sekunti/isku. Tulos 1000ms.
-      const ms = duration * 4 * (60 / bpm) * 1000
-
-      // 3. Ajasta seuraava askel
       playbackTimeoutRef.current = setTimeout(() => {
-        playNextStep()
+        handleNextNote()
       }, ms)
-    }, [handleNextNote, bpm])
+    }, [currentEventIndex, scoreEvents, bpm, isPlaying, handleNextNote])
+
+    // Trigger playback loop
+    useEffect(() => {
+      if (isPlaying) {
+        playNextStep()
+      }
+      return () => {
+        if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current)
+      }
+    }, [isPlaying, currentEventIndex, playNextStep])
 
     const togglePlay = () => {
-      if (isPlaying) {
-        setIsPlaying(false)
-        if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current)
-      } else {
-        setIsPlaying(true)
-        // Käynnistä looppi
-        // Jos ollaan alussa (tai reset tehty), siirry heti ensimmäiseen.
-        // Jos ollaan keskellä, jatka siitä.
-        playNextStep()
-      }
+      setIsPlaying(prev => {
+        if (!prev) {
+          // If at the end, restart from beginning
+          if (currentEventIndex >= scoreEvents.length - 1) {
+            syncToEvent(0)
+          }
+        }
+        return !prev
+      })
     }
 
     const handleBpmChange = e => {
@@ -215,8 +235,7 @@ const NotationDisplay = forwardRef(
       setBpm(val)
     }
 
-    // --- PLAYBACK LOGIC END ---
-
+    // Expose methods to parent component via ref
     useImperativeHandle(ref, () => ({
       next: handleNextNote,
       previous: handlePrevNote,
@@ -226,123 +245,114 @@ const NotationDisplay = forwardRef(
       },
     }))
 
-    // Zoom synkronointi propsista
+    // Sync zoom state (does not trigger reload)
     useEffect(() => {
       setZoom(initialZoom)
     }, [initialZoom])
 
-    // Score loading logic (Pidetty ennallaan, mutta lyhennetty tässä vastauksessa tilan säästämiseksi.
-    // Kopioi alkuperäisestä loadScore ja useEffect-osiot tähän jos ne puuttuvat,
-    // mutta tässä keskitytään uusiin ominaisuuksiin.)
-
-    // ... (loadScore ja OSMD alustus useEffectit säilyvät ennallaan) ...
-
-    // Varmistetaan että loadScore ja muut efektit ovat olemassa (kopioi alkuperäisestä tiedostosta tähän väliin)
-    // TÄSSÄ ON NOPEA KOPIO TARVITTAVISTA LOGIIKOISTA JOTTA KOODI TOIMII SUORAAN:
+    /**
+     * Loads the score from URL, renders it, and parses events.
+     */
     const loadScore = useCallback(
       async url => {
         if (!osmdRef.current || !url) return
         setIsLoaded(false)
         setScoreLoaded(false)
         setError(null)
+        setScoreEvents([])
+        setCurrentEventIndex(0)
+
         try {
+          // Calculate container width for responsive rendering
           let containerWidth = 800
           if (osmdContainerRef.current?.parentElement) {
             containerWidth = osmdContainerRef.current.parentElement.clientWidth - 20
           }
-          if (horizontalMode) {
-            osmdRef.current.setOptions({
-              ...defaultOptions,
-              renderSingleHorizontalStaffline: true,
-              autoResize: false,
-              pageFormat: 'Endless',
-            })
-            if (osmdRef.current.EngravingRules) {
-              osmdRef.current.EngravingRules.PageWidth = containerWidth
-            }
-          } else {
-            osmdRef.current.setOptions({
-              ...defaultOptions,
-              renderSingleHorizontalStaffline: false,
-              autoResize: true,
-              pageFormat: 'Endless',
-            })
+
+          const options = {
+            ...defaultOptions,
+            pageFormat: 'Endless',
+            autoResize: !horizontalMode,
+            renderSingleHorizontalStaffline: horizontalMode,
           }
+          if (horizontalMode && osmdRef.current.EngravingRules) {
+            osmdRef.current.EngravingRules.PageWidth = containerWidth
+          }
+
+          osmdRef.current.setOptions(options)
+
           await osmdRef.current.load(url)
           setScoreLoaded(true)
+
+          // Adjust container styles based on mode
           if (osmdContainerRef.current) {
-            if (horizontalMode) {
-              osmdContainerRef.current.style.width = containerWidth + 'px'
-              osmdContainerRef.current.style.overflowX = 'visible'
-              osmdContainerRef.current.parentElement.style.overflowX = 'auto'
-            } else {
-              osmdContainerRef.current.style.width = '100%'
-              osmdContainerRef.current.style.overflowX = 'auto'
-            }
+            osmdContainerRef.current.style.width = horizontalMode ? containerWidth + 'px' : '100%'
+            osmdContainerRef.current.style.overflowX = horizontalMode ? 'visible' : 'auto'
+            if (horizontalMode) osmdContainerRef.current.parentElement.style.overflowX = 'auto'
           }
+
           if (osmdRef.current.IsReadyToRender()) {
+            // First timeout: Render and Parse
             setTimeout(() => {
               if (osmdRef.current) {
-                osmdRef.current.Zoom = zoom
+                // Use Ref for zoom to avoid dependency loop
+                osmdRef.current.Zoom = zoomRef.current
                 osmdRef.current.render()
+
+                // --- PARSER ---
+                try {
+                  const events = parseScore(osmdRef.current)
+                  setScoreEvents(events)
+                  logger.info(`Score loaded and parsed: ${events.length} events`)
+                } catch (parseError) {
+                  logger.error('ScoreParser failed:', parseError)
+                }
               }
             }, 50)
+
+            // Second timeout: Initialize Cursors and finalize loading state
             setTimeout(() => {
               if (osmdRef.current) {
                 try {
-                  if (!osmdRef.current.cursor) {
-                    osmdRef.current.enableOrDisableCursors(true)
-                  }
-                  if (osmdRef.current.cursor) {
-                    osmdRef.current.cursor.show()
-                  }
+                  osmdRef.current.enableOrDisableCursors(true)
+                  osmdRef.current.cursor.show()
                 } catch (err) {
-                  logger.warn('Error setting up cursor:', err)
+                  ;('enable cursor error:', err)
                 }
+
+                setIsLoaded(true)
+              } else {
+                setError('Score loaded but not ready to render')
               }
-            }, 100)
-            setIsLoaded(true)
-          } else {
-            setError('Score loaded but not ready to render')
-          }
+            }, 100) // FIX: Added closing brace, delay, and parenthesis
+          } // FIX: Added closing brace for IsReadyToRender check
         } catch (err) {
           logger.error('Error loading score:', err)
           setError('Failed to load sheet music')
         }
       },
-      [zoom, horizontalMode],
+      [horizontalMode],
     )
 
+    // Initialize OpenSheetMusicDisplay instance
     useEffect(() => {
       if (!osmdContainerRef.current) return
       const container = osmdContainerRef.current
+      // Clear container before initializing
       while (container.firstChild) {
         container.removeChild(container.firstChild)
       }
       try {
         container.style.maxWidth = '100%'
         container.style.width = '100%'
-        if (horizontalMode) {
-          const parentWidth = container.parentElement ? container.parentElement.clientWidth : 800
-          const osmd = new OpenSheetMusicDisplay(container, {
-            ...defaultOptions,
-            renderSingleHorizontalStaffline: true,
-            pageFormat: 'Endless',
-            autoResize: false,
-            width: parentWidth - 20,
-          })
-          osmd.setLogLevel('warn')
-          osmdRef.current = osmd
-        } else {
-          const osmd = new OpenSheetMusicDisplay(container, {
-            ...defaultOptions,
-            renderSingleHorizontalStaffline: false,
-            pageFormat: 'Endless',
-            autoResize: true,
-          })
-          osmd.setLogLevel('warn')
-          osmdRef.current = osmd
-        }
+
+        const osmd = new OpenSheetMusicDisplay(container, {
+          ...defaultOptions,
+          renderSingleHorizontalStaffline: horizontalMode,
+          pageFormat: 'Endless',
+        })
+        osmd.setLogLevel('warn')
+        osmdRef.current = osmd
         setIsInitialized(true)
       } catch (err) {
         logger.error('Error initializing OSMD:', err)
@@ -350,19 +360,18 @@ const NotationDisplay = forwardRef(
       }
       return () => {
         if (osmdRef.current) osmdRef.current = null
-        if (container) {
-          while (container.firstChild) container.removeChild(container.firstChild)
-        }
         setIsInitialized(false)
       }
     }, [horizontalMode])
 
+    // Effect: Trigger score load when URL or Init state changes
     useEffect(() => {
       if (isInitialized && osmdRef.current && scoreUrl) {
         loadScore(scoreUrl)
       }
     }, [scoreUrl, loadScore, isInitialized])
 
+    // Effect: Handle Zoom updates (renders only, no reload)
     useEffect(() => {
       if (osmdRef.current && isLoaded && scoreLoaded) {
         try {
@@ -371,25 +380,23 @@ const NotationDisplay = forwardRef(
             osmdRef.current.render()
           }
         } catch (err) {
-          logger.error('Error applying zoom:', err)
+          ;('error updating zoom:', err)
         }
       }
     }, [zoom, isLoaded, scoreLoaded])
 
+    // --- UI Handlers ---
+
     const handleZoomIn = () => {
-      if (osmdRef.current && isLoaded && scoreLoaded) {
-        const newZoom = Math.min(zoom * 1.2, 3.0)
-        setZoom(newZoom)
-        if (onZoomIn) onZoomIn(newZoom)
-      }
+      const newZoom = Math.min(zoom * 1.2, 3.0)
+      setZoom(newZoom)
+      if (onZoomIn) onZoomIn(newZoom)
     }
 
     const handleZoomOut = () => {
-      if (osmdRef.current && isLoaded && scoreLoaded) {
-        const newZoom = Math.max(zoom / 1.2, 0.5)
-        setZoom(newZoom)
-        if (onZoomOut) onZoomOut(newZoom)
-      }
+      const newZoom = Math.max(zoom / 1.2, 0.5)
+      setZoom(newZoom)
+      if (onZoomOut) onZoomOut(newZoom)
     }
 
     const toggleAutoAdvance = () => {

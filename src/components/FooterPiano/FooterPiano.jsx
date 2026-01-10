@@ -49,13 +49,6 @@ const FooterPiano = () => {
 
   const isAudioReady = isAudioStarted && isLoaded
 
-  const isTouched = useCallback(
-    note => {
-      return touchedNotes.has(note)
-    },
-    [touchedNotes],
-  )
-
   // PÄIVITETTY: Nuotti on aktiivinen jos käyttäjä koskee TAI jos se on opastuksessa
   const isNoteActive = useCallback(
     note => {
