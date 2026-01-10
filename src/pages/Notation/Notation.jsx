@@ -24,14 +24,17 @@ const Notation = () => {
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true)
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(true)
 
+  // Hand Selection State: 'both', 'right', 'left'
+  const [handSelection, setHandSelection] = useState('both')
+
   // Refs
   const notationRef = useRef(null)
 
   // Custom Hooks
-  const { activeNotes, matchedNotes, setCurrentNotesUnderCursor, isMatched } = useNoteMatching()
+  const { activeNotes, matchedNotes, setCurrentNotesUnderCursor, isMatched } =
+    useNoteMatching(handSelection)
   const { playScoreNotes } = useScoreAudio()
 
-  // Remove piano guidance when component unmounts
   useEffect(() => {
     return () => {
       if (window.setPianoGuidance) window.setPianoGuidance([])
@@ -45,12 +48,8 @@ const Notation = () => {
 
       const shouldAutoPlay = options.autoPlay !== undefined ? options.autoPlay : autoPlayEnabled
 
-      // Play audio
       playScoreNotes(notes, shouldAutoPlay, options.bpm)
 
-      // Visual highlight on piano
-      // FIX: Removed .filter(n => !n.isTied).
-      // Now we highlight ALL notes passed from ScoreParser, including tie starts.
       const notesToHighlight = notes.map(n => n.name)
 
       if (window.setPianoGuidance) {
@@ -73,7 +72,6 @@ const Notation = () => {
     if (settings.autoAdvance !== undefined) setAutoAdvanceEnabled(settings.autoAdvance)
   }, [])
 
-  // Auto-advance logic
   useEffect(() => {
     if (isMatched && autoAdvanceEnabled && currentNotes.length > 0) {
       const timer = setTimeout(() => {
@@ -86,7 +84,6 @@ const Notation = () => {
     }
   }, [isMatched, autoAdvanceEnabled, currentNotes])
 
-  // Responsive zoom
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) setZoom(0.8)
@@ -97,6 +94,17 @@ const Notation = () => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  const buttonStyle = isActive => ({
+    padding: '8px 12px',
+    margin: '0 5px',
+    backgroundColor: isActive ? '#4CAF50' : '#ddd',
+    color: isActive ? 'white' : 'black',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+  })
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -105,9 +113,40 @@ const Notation = () => {
       style={{ width: '100%', height: '100%' }}
     >
       <NotationContainer>
-        {/* Left Column: Score and Controls */}
         <ScoreArea>
+          {/* Hand Selection Controls */}
+          <div
+            style={{
+              padding: '10px',
+              textAlign: 'center',
+              background: '#f5f5f5',
+              marginBottom: '10px',
+              borderRadius: '8px',
+            }}
+          >
+            <span style={{ marginRight: '10px', fontWeight: 'bold' }}>Practice Hand:</span>
+            <button
+              style={buttonStyle(handSelection === 'both')}
+              onClick={() => setHandSelection('both')}
+            >
+              Both
+            </button>
+            <button
+              style={buttonStyle(handSelection === 'right')}
+              onClick={() => setHandSelection('right')}
+            >
+              Right (RH)
+            </button>
+            <button
+              style={buttonStyle(handSelection === 'left')}
+              onClick={() => setHandSelection('left')}
+            >
+              Left (LH)
+            </button>
+          </div>
+
           <NotationWrapper>
+            {/* LISÄYS: Välitetään handSelection propsina */}
             <NotationDisplay
               ref={notationRef}
               scoreUrl={scoreUrl}
@@ -117,11 +156,11 @@ const Notation = () => {
               onZoomOut={setZoom}
               onScoreChange={handleScoreChange}
               onSettingsChange={handleSettingsChange}
+              handSelection={handSelection}
             />
           </NotationWrapper>
         </ScoreArea>
 
-        {/* Right Column: Sidebar (Dashboard) */}
         <Sidebar>
           <PageTitle>Practice Dashboard</PageTitle>
 

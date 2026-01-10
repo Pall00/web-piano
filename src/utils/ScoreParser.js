@@ -4,11 +4,8 @@ import { midiToNote } from './musicTheory'
 
 /**
  * ScoreParser
- *
- * Muuttaa OSMD:n monimutkaisen nuottidatan lineaariseksi tapahtumalistaksi.
- * - Yhdistää sidotut nuotit (ties) yhdeksi pitkäksi nuotiksi.
- * - Käyttää tarkkaa musiikillista ajoitusta (timestamps).
- * - Suodattaa pois sidosten "hännät" (silent tail notes).
+ * Parses OSMD data.
+ * Uses Global Staff Index to separate hands reliably.
  */
 export const parseScore = osmd => {
   if (!osmd || !osmd.cursor) {
@@ -16,59 +13,73 @@ export const parseScore = osmd => {
     return []
   }
 
-  logger.info('ScoreParser: Starting score analysis...')
+  logger.info('ScoreParser: Starting global index analysis...')
   const startTime = performance.now()
 
-  // 1. Alustetaan iteraattori
+  // Map Staff Objects to a 1-based global index
+  const staffIdMap = new Map()
+  if (osmd.Sheet && osmd.Sheet.Staves) {
+    osmd.Sheet.Staves.forEach((staff, index) => {
+      staffIdMap.set(staff, index + 1)
+    })
+  }
+
   osmd.cursor.reset()
   const iterator = osmd.cursor.Iterator
 
-  if (!iterator) {
-    logger.error('ScoreParser: Iterator could not be initialized')
-    return []
-  }
+  if (!iterator) return []
 
   const scoreEvents = []
+  let staff1Count = 0
+  let staff2Count = 0
 
-  // 2. Käydään kappale läpi alusta loppuun
   while (!iterator.EndReached) {
     const currentTimestamp = iterator.CurrentSourceTimestamp.RealValue
     const voiceEntries = iterator.CurrentVoiceEntries
-
     const activeNotes = []
 
-    // Käydään läpi kaikki äänet tässä ajanhetkessä
     for (const voiceEntry of voiceEntries) {
       if (!voiceEntry.Notes) continue
 
+      let staffId = 1
+      let staffObj = null
+
+      // Determine Staff Object from VoiceEntry or Note
+      if (voiceEntry.ParentSourceStaffEntry && voiceEntry.ParentSourceStaffEntry.ParentStaff) {
+        staffObj = voiceEntry.ParentSourceStaffEntry.ParentStaff
+      } else if (voiceEntry.ParentStaffEntry && voiceEntry.ParentStaffEntry.ParentStaff) {
+        staffObj = voiceEntry.ParentStaffEntry.ParentStaff
+      } else if (
+        voiceEntry.Notes[0] &&
+        voiceEntry.Notes[0].SourceStaffEntry &&
+        voiceEntry.Notes[0].SourceStaffEntry.ParentStaff
+      ) {
+        staffObj = voiceEntry.Notes[0].SourceStaffEntry.ParentStaff
+      }
+
+      if (staffObj && staffIdMap.has(staffObj)) {
+        staffId = staffIdMap.get(staffObj)
+      }
+
+      if (staffId === 1) staff1Count++
+      if (staffId > 1) staff2Count++
+
       for (const note of voiceEntry.Notes) {
-        // Ohitetaan tauot ja nuotit ilman sävelkorkeutta
         if (note.isRest() || !note.Pitch) continue
+        if (note.tie && note.tie.StartNote !== note) continue
 
-        // --- SIDOSTEN (TIES) KÄSITTELY ---
-
-        // Jos nuotti on osa sidosta, mutta EI sen alku (eli se on "häntä"),
-        // ohitamme sen kokonaan. Se on käsitelty jo aiemmin "pään" kohdalla.
-        if (note.tie && note.tie.StartNote !== note) {
-          continue
-        }
-
-        // Lasketaan nuotin kesto
-        let duration = note.Length.RealValue
-
-        // Jos tämä on sidoksen alku (pää), lasketaan koko ketjun yhteiskesto
+        let duration = note.Length.RealValue * 4
         if (note.tie) {
           try {
-            const totalDuration = note.tie.Notes.reduce((sum, tiedNote) => {
-              return sum + tiedNote.Length.RealValue
-            }, 0)
-            duration = totalDuration
+            const totalDuration = note.tie.Notes.reduce(
+              (sum, tiedNote) => sum + tiedNote.Length.RealValue,
+              0,
+            )
+            duration = totalDuration * 4
           } catch (err) {
             logger.warn('ScoreParser: Error calculating tied duration', err)
           }
         }
-
-        // --- DATAN KERÄYS ---
 
         const midiNote = note.Pitch.halfTone
         const noteName = midiToNote(midiNote)
@@ -78,15 +89,12 @@ export const parseScore = osmd => {
           midi: midiNote,
           duration: duration,
           timestamp: currentTimestamp,
-          // Nimetään uudelleen selkeyden vuoksi: tämä on sidoksen ALKU.
-          // Koska suodatamme hännät pois (rivi 48), kaikki listalle päätyvät
-          // sidotut nuotit ovat "päitä", jotka pitää soittaa.
           isTieStart: !!note.tie,
+          staffId: staffId,
         })
       }
     }
 
-    // Jos tässä hetkessä oli nuotteja, lisätään tapahtuma listaan
     if (activeNotes.length > 0) {
       scoreEvents.push({
         timestamp: currentTimestamp,
@@ -97,12 +105,11 @@ export const parseScore = osmd => {
     iterator.moveToNext()
   }
 
-  // Palautetaan kursori alkuun
   osmd.cursor.reset()
 
   const endTime = performance.now()
   logger.info(
-    `ScoreParser: Analysis complete in ${(endTime - startTime).toFixed(2)}ms. Found ${scoreEvents.length} events.`,
+    `ScoreParser: Analysis done in ${(endTime - startTime).toFixed(2)}ms. Staff 1: ${staff1Count}, Staff 2+: ${staff2Count}`,
   )
 
   return scoreEvents

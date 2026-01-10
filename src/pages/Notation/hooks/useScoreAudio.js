@@ -3,19 +3,19 @@ import { useCallback } from 'react'
 
 const useScoreAudio = () => {
   const playScoreNotes = useCallback((notes, autoPlayEnabled, bpm = 100) => {
-    // Perustarkistukset
+    // Basic validation
     if (!notes || notes.length === 0 || !autoPlayEnabled) return
 
-    // KORJAUS: Emme enää suodata pois sidottuja nuotteja (!note.isTied).
-    // ScoreParser on jo poistanut "hiljaiset hännät".
-    // Jos nuotti on listalla, se on tarkoitettu soitettavaksi (myös pitkät äänet).
+    // Do not filter out tied notes here; ScoreParser handles the logic.
     const notesToPlay = notes
 
     if (notesToPlay.length === 0) return
 
-    // 1. Laske nuotin kesto sekunneissa
-    // notes[0].duration on iskuina (esim 1.0 = neljäsosa)
+    // 1. Calculate note duration in seconds
+    // notes[0].duration is now in BEATS (e.g. 1.0 = Quarter Note)
+    // (Beats) * (60 / BPM) = Duration in seconds
     const beatDuration = notesToPlay[0].duration || 1
+    // Subtract a tiny amount (0.05s) to ensure notes don't blur together excessively
     const durationInSeconds = Math.max(0.1, beatDuration * (60 / bpm) - 0.05)
 
     if (notesToPlay.length > 1) {
@@ -33,7 +33,7 @@ const useScoreAudio = () => {
         })
       }
     } else {
-      // Single note
+      // Play single note
       if (window.playPianoNote) {
         window.playPianoNote(notesToPlay[0].name, { source: 'demo', duration: durationInSeconds })
       }
