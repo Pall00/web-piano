@@ -118,18 +118,16 @@ const NotationDisplay = forwardRef(
         const osmd = osmdRef.current
 
         if (osmd && osmd.cursor) {
+          // ... (kursorin siirto koodi säilyy samana) ...
           try {
             osmd.cursor.reset()
             const iterator = osmd.cursor.Iterator
-
-            // Advance cursor until we reach the target timestamp (with small float tolerance)
             while (
               !iterator.EndReached &&
               iterator.CurrentSourceTimestamp.RealValue < targetEvent.timestamp - 0.001
             ) {
               osmd.cursor.next()
             }
-
             osmd.cursor.update()
           } catch (err) {
             logger.warn('Cursor sync warning:', err)
@@ -141,8 +139,12 @@ const NotationDisplay = forwardRef(
           const cleanNotes = targetEvent.notes.map(n => ({
             name: n.note,
             midiNote: n.midi,
-            duration: n.duration, // Duration in beats
-            isTied: n.isTied,
+            duration: n.duration,
+            // KORJAUS: Välitetään uusi property nimi eteenpäin
+            isTieStart: n.isTieStart,
+            // Varmuuden vuoksi, jos joku vanha koodi vielä etsii tätä,
+            // voimme pitää isTied:n samana kuin isTieStart
+            isTied: n.isTieStart,
           }))
 
           onNoteSelected(cleanNotes, {

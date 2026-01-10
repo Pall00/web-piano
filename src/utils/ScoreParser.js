@@ -1,3 +1,4 @@
+// src/utils/ScoreParser.js
 import logger from './logger'
 import { midiToNote } from './musicTheory'
 
@@ -7,7 +8,7 @@ import { midiToNote } from './musicTheory'
  * Muuttaa OSMD:n monimutkaisen nuottidatan lineaariseksi tapahtumalistaksi.
  * - Yhdistää sidotut nuotit (ties) yhdeksi pitkäksi nuotiksi.
  * - Käyttää tarkkaa musiikillista ajoitusta (timestamps).
- * - Mahdollistaa luotettavan MIDI-harjoittelun ja toiston.
+ * - Suodattaa pois sidosten "hännät" (silent tail notes).
  */
 export const parseScore = osmd => {
   if (!osmd || !osmd.cursor) {
@@ -19,13 +20,9 @@ export const parseScore = osmd => {
   const startTime = performance.now()
 
   // 1. Alustetaan iteraattori
-  // KORJAUS: Käytetään cursor.reset(), joka alustaa iteraattorin oikein.
-  // Emme kutsu iterator.Init():iä suoraan, koska se aiheutti virheen.
   osmd.cursor.reset()
-
   const iterator = osmd.cursor.Iterator
 
-  // Varmistus
   if (!iterator) {
     logger.error('ScoreParser: Iterator could not be initialized')
     return []
@@ -35,7 +32,7 @@ export const parseScore = osmd => {
 
   // 2. Käydään kappale läpi alusta loppuun
   while (!iterator.EndReached) {
-    const currentTimestamp = iterator.CurrentSourceTimestamp.RealValue // Aika iskuina (0, 1, 2.5...)
+    const currentTimestamp = iterator.CurrentSourceTimestamp.RealValue
     const voiceEntries = iterator.CurrentVoiceEntries
 
     const activeNotes = []
@@ -62,11 +59,9 @@ export const parseScore = osmd => {
         // Jos tämä on sidoksen alku (pää), lasketaan koko ketjun yhteiskesto
         if (note.tie) {
           try {
-            // note.tie.Notes sisältää listan kaikista ketjuun kuuluvista nuoteista
             const totalDuration = note.tie.Notes.reduce((sum, tiedNote) => {
               return sum + tiedNote.Length.RealValue
             }, 0)
-
             duration = totalDuration
           } catch (err) {
             logger.warn('ScoreParser: Error calculating tied duration', err)
@@ -75,15 +70,18 @@ export const parseScore = osmd => {
 
         // --- DATAN KERÄYS ---
 
-        const midiNote = note.Pitch.halfTone // Esim. 60 (Keski-C)
+        const midiNote = note.Pitch.halfTone
         const noteName = midiToNote(midiNote)
 
         activeNotes.push({
-          note: noteName, // Esim "C4"
-          midi: midiNote, // Esim 60
-          duration: duration, // Kesto iskuina (Quarter Notes)
+          note: noteName,
+          midi: midiNote,
+          duration: duration,
           timestamp: currentTimestamp,
-          isTied: !!note.tie, // Tieto siitä, oliko tämä sidottu
+          // Nimetään uudelleen selkeyden vuoksi: tämä on sidoksen ALKU.
+          // Koska suodatamme hännät pois (rivi 48), kaikki listalle päätyvät
+          // sidotut nuotit ovat "päitä", jotka pitää soittaa.
+          isTieStart: !!note.tie,
         })
       }
     }
@@ -96,11 +94,10 @@ export const parseScore = osmd => {
       })
     }
 
-    // Siirrytään seuraavaan tapahtumaan
     iterator.moveToNext()
   }
 
-  // Palautetaan kursori alkuun, jotta käyttöliittymä näyttää kappaleen alun
+  // Palautetaan kursori alkuun
   osmd.cursor.reset()
 
   const endTime = performance.now()
