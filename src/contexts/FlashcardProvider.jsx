@@ -1,7 +1,7 @@
-// src/contexts/FlashcardProvider.jsx - Fixed version
 import { useState, useEffect } from 'react'
 import { FlashcardContext } from './flashcardContext'
-import { initialFlashcardSets } from '../data/flashcardsData'
+// Tuodaan uudet datat (FLASHCARDS_DATA, FLASHCARD_CATEGORIES) vanhan sijaan
+import { FLASHCARDS_DATA, FLASHCARD_CATEGORIES } from '../data/flashcardsData'
 
 export const FlashcardProvider = ({ children }) => {
   const [flashcardSets, setFlashcardSets] = useState([])
@@ -10,10 +10,22 @@ export const FlashcardProvider = ({ children }) => {
 
   // Load flashcard sets from data file
   useEffect(() => {
-    setFlashcardSets(initialFlashcardSets)
-    // If we have sets, set the first one as active by default
-    if (initialFlashcardSets.length > 0) {
-      setActiveSetId(initialFlashcardSets[0].id)
+    // Muunnetaan uusi data-rakenne vanhan sovelluslogiikan ymmärtämäksi "sets"-muodoksi
+    const generatedSets = Object.entries(FLASHCARD_CATEGORIES).map(([key, label]) => {
+      return {
+        id: key,
+        name: label,
+        description: `Harjoittele: ${label}`,
+        // Suodatetaan tähän kategoriaan kuuluvat kortit
+        cards: FLASHCARDS_DATA.filter(card => card.category === key),
+      }
+    })
+
+    setFlashcardSets(generatedSets)
+
+    // Asetetaan ensimmäinen pakka aktiiviseksi oletuksena
+    if (generatedSets.length > 0) {
+      setActiveSetId(generatedSets[0].id)
     }
   }, [])
 
@@ -59,7 +71,7 @@ export const FlashcardProvider = ({ children }) => {
         flashcardSets,
         activeSetId,
         currentCard,
-        currentCardIndex, // Add currentCardIndex to the context
+        currentCardIndex,
         selectCardSet,
         nextCard,
         prevCard,

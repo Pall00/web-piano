@@ -1,193 +1,156 @@
-// src/data/flashcardsData.js
+export const FLASHCARD_CATEGORIES = {
+  NOTES_TREBLE: 'Nuotit (G-avain)',
+  NOTES_BASS: 'Nuotit (F-avain)',
+  TERMS: 'Musiikkisanasto',
+}
 
-/**
- * Initial flashcard sets with basic data structure
- * In future phases, this can be expanded with more complex question/answer types
- */
-export const initialFlashcardSets = [
+export const FLASHCARDS_DATA = [
+  // --- Nuotit G-avaimella (Treble Clef) ---
   {
-    id: 'basic-notes',
-    name: 'Basic Notes',
-    description: 'Learn to identify basic musical notes',
-    difficulty: 'beginner',
-    cards: [
-      {
-        id: 'note-1',
-        question: 'What note is this: C?',
-        answer: 'C is the white key to the left of two black keys',
-      },
-      {
-        id: 'note-2',
-        question: 'What note is this: D?',
-        answer: 'D is the white key between two groups of black keys',
-      },
-      {
-        id: 'note-3',
-        question: 'What note is this: E?',
-        answer: 'E is the white key to the right of two black keys',
-      },
-      {
-        id: 'note-4',
-        question: 'What note is this: F?',
-        answer: 'F is the white key to the left of three black keys',
-      },
-      {
-        id: 'note-5',
-        question: 'What note is this: G?',
-        answer: 'G is the white key between the first and second of three black keys',
-      },
-    ],
+    id: 'c4-treble',
+    category: 'NOTES_TREBLE',
+    type: 'notation',
+    noteName: 'C4',
+    clef: 'G',
+    back: 'Keski-C (C4)',
+    difficulty: 'easy',
   },
   {
-    id: 'basic-intervals',
-    name: 'Basic Intervals',
-    description: 'Learn to identify basic musical intervals',
-    difficulty: 'beginner',
-    cards: [
-      {
-        id: 'interval-1',
-        question: 'What interval is C to D?',
-        answer: 'Major 2nd (whole step)',
-      },
-      {
-        id: 'interval-2',
-        question: 'What interval is C to E?',
-        answer: 'Major 3rd',
-      },
-      {
-        id: 'interval-3',
-        question: 'What interval is C to F?',
-        answer: 'Perfect 4th',
-      },
-      {
-        id: 'interval-4',
-        question: 'What interval is C to G?',
-        answer: 'Perfect 5th',
-      },
-      {
-        id: 'interval-5',
-        question: 'What interval is C to A?',
-        answer: 'Major 6th',
-      },
-    ],
+    id: 'd4-treble',
+    category: 'NOTES_TREBLE',
+    type: 'notation',
+    noteName: 'D4',
+    clef: 'G',
+    back: 'D4',
+    difficulty: 'easy',
   },
   {
-    id: 'basic-chords',
-    name: 'Basic Chords',
-    description: 'Learn to identify and play basic piano chords',
-    difficulty: 'intermediate',
-    cards: [
-      {
-        id: 'chord-1',
-        question: 'What notes make up a C Major chord?',
-        answer: 'C, E, G',
-      },
-      {
-        id: 'chord-2',
-        question: 'What notes make up a G Major chord?',
-        answer: 'G, B, D',
-      },
-      {
-        id: 'chord-3',
-        question: 'What notes make up a D Minor chord?',
-        answer: 'D, F, A',
-      },
-      {
-        id: 'chord-4',
-        question: 'What notes make up an F Major chord?',
-        answer: 'F, A, C',
-      },
-      {
-        id: 'chord-5',
-        question: 'What notes make up an A Minor chord?',
-        answer: 'A, C, E',
-      },
-    ],
+    id: 'e4-treble',
+    category: 'NOTES_TREBLE',
+    type: 'notation',
+    noteName: 'E4',
+    clef: 'G',
+    back: 'E4',
+    difficulty: 'easy',
   },
   {
-    id: 'note-reading',
-    name: 'Note Reading',
-    description: 'Practice reading notes on the staff',
-    difficulty: 'beginner',
-    cards: [
-      {
-        id: 'staff-note-1',
-        type: 'notation',
-        question: 'What note is this?',
-        notation: 'C4',
-        answer: 'C4 (Middle C)',
-      },
-      {
-        id: 'staff-note-2',
-        type: 'notation',
-        question: 'What note is this?',
-        notation: 'E4',
-        answer: 'E4',
-      },
-      {
-        id: 'staff-note-3',
-        type: 'notation',
-        question: 'What note is this?',
-        notation: 'G4',
-        answer: 'G4',
-      },
-      {
-        id: 'staff-note-4',
-        type: 'notation',
-        question: 'What note is this?',
-        notation: 'B4',
-        answer: 'B4',
-      },
-      {
-        id: 'staff-note-5',
-        type: 'notation',
-        question: 'What note is this?',
-        notation: 'F#4',
-        answer: 'F#4 (F sharp 4)',
-      },
-    ],
+    id: 'f4-treble',
+    category: 'NOTES_TREBLE',
+    type: 'notation',
+    noteName: 'F4',
+    clef: 'G',
+    back: 'F4',
+    difficulty: 'easy',
   },
   {
-    id: 'chord-reading',
-    name: 'Chord Reading',
-    description: 'Practice reading basic chords on the staff',
-    difficulty: 'intermediate',
-    cards: [
-      {
-        id: 'chord-notation-1',
-        type: 'notation',
-        question: 'What chord is this?',
-        notation: ['C4', 'E4', 'G4'],
-        answer: 'C Major',
-      },
-      {
-        id: 'chord-notation-2',
-        type: 'notation',
-        question: 'What chord is this?',
-        notation: ['G4', 'B4', 'D5'],
-        answer: 'G Major',
-      },
-      {
-        id: 'chord-notation-3',
-        type: 'notation',
-        question: 'What chord is this?',
-        notation: ['D4', 'F4', 'A4'],
-        answer: 'D Minor',
-      },
-      {
-        id: 'chord-notation-4',
-        type: 'notation',
-        question: 'What chord is this?',
-        notation: ['A4', 'C5', 'E5'],
-        answer: 'A Minor',
-      },
-      {
-        id: 'chord-notation-5',
-        type: 'notation',
-        question: 'What chord is this?',
-        notation: ['F4', 'A4', 'C5'],
-        answer: 'F Major',
-      },
-    ],
+    id: 'g4-treble',
+    category: 'NOTES_TREBLE',
+    type: 'notation',
+    noteName: 'G4',
+    clef: 'G',
+    back: 'G4',
+    difficulty: 'easy',
+  },
+  {
+    id: 'a4-treble',
+    category: 'NOTES_TREBLE',
+    type: 'notation',
+    noteName: 'A4',
+    clef: 'G',
+    back: 'A4',
+    difficulty: 'medium',
+  },
+  {
+    id: 'b4-treble',
+    category: 'NOTES_TREBLE',
+    type: 'notation',
+    noteName: 'B4',
+    clef: 'G',
+    back: 'B4',
+    difficulty: 'medium',
+  },
+  {
+    id: 'c5-treble',
+    category: 'NOTES_TREBLE',
+    type: 'notation',
+    noteName: 'C5',
+    clef: 'G',
+    back: 'C5 (Ylä-C)',
+    difficulty: 'medium',
+  },
+
+  // --- Nuotit F-avaimella (Bass Clef) ---
+  {
+    id: 'c3-bass',
+    category: 'NOTES_BASS',
+    type: 'notation',
+    noteName: 'C3',
+    clef: 'F',
+    back: 'C3 (Pieni C)',
+    difficulty: 'medium',
+  },
+  {
+    id: 'f3-bass',
+    category: 'NOTES_BASS',
+    type: 'notation',
+    noteName: 'F3',
+    clef: 'F',
+    back: 'F3',
+    difficulty: 'medium',
+  },
+  {
+    id: 'g3-bass',
+    category: 'NOTES_BASS',
+    type: 'notation',
+    noteName: 'G3',
+    clef: 'F',
+    back: 'G3',
+    difficulty: 'medium',
+  },
+
+  // --- Musiikkisanasto (Tekstikortit säilyvät) ---
+  {
+    id: 'term-allegro',
+    category: 'TERMS',
+    type: 'text',
+    front: 'Allegro',
+    back: 'Nopeasti',
+    difficulty: 'medium',
+  },
+  {
+    id: 'term-adagio',
+    category: 'TERMS',
+    type: 'text',
+    front: 'Adagio',
+    back: 'Hitaasti',
+    difficulty: 'medium',
+  },
+  {
+    id: 'term-forte',
+    category: 'TERMS',
+    type: 'text',
+    front: 'Forte (f)',
+    back: 'Voimakkaasti',
+    difficulty: 'easy',
+  },
+  {
+    id: 'term-piano',
+    category: 'TERMS',
+    type: 'text',
+    front: 'Piano (p)',
+    back: 'Hiljaa',
+    difficulty: 'easy',
+  },
+  {
+    id: 'term-crescendo',
+    category: 'TERMS',
+    type: 'text',
+    front: 'Crescendo (<)',
+    back: 'Voimistuen',
+    difficulty: 'medium',
   },
 ]
+
+export const getFlashcardsByCategory = category => {
+  return FLASHCARDS_DATA.filter(card => card.category === category)
+}
