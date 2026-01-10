@@ -31,14 +31,12 @@ const Notation = () => {
   const { activeNotes, matchedNotes, setCurrentNotesUnderCursor, isMatched } = useNoteMatching()
   const { playScoreNotes } = useScoreAudio()
 
-  // Poistetaan opastus kun komponentti unmounttaa
+  // Remove piano guidance when component unmounts
   useEffect(() => {
     return () => {
       if (window.setPianoGuidance) window.setPianoGuidance([])
     }
   }, [])
-
-  // --- KORJAUS ALKAA: Käytetään useCallbackia ---
 
   const handleNoteSelected = useCallback(
     (notes, options = {}) => {
@@ -47,11 +45,13 @@ const Notation = () => {
 
       const shouldAutoPlay = options.autoPlay !== undefined ? options.autoPlay : autoPlayEnabled
 
-      // VÄLITÄ options.bpm
+      // Play audio
       playScoreNotes(notes, shouldAutoPlay, options.bpm)
 
       // Visual highlight on piano
-      const notesToHighlight = notes.filter(n => !n.isTied).map(n => n.name)
+      // FIX: Removed .filter(n => !n.isTied).
+      // Now we highlight ALL notes passed from ScoreParser, including tie starts.
+      const notesToHighlight = notes.map(n => n.name)
 
       if (window.setPianoGuidance) {
         window.setPianoGuidance(notesToHighlight)
@@ -60,7 +60,7 @@ const Notation = () => {
       }
     },
     [autoPlayEnabled, playScoreNotes, setCurrentNotesUnderCursor],
-  ) // Riippuvuudet
+  )
 
   const handleScoreChange = useCallback(url => {
     setScoreUrl(url)
@@ -72,8 +72,6 @@ const Notation = () => {
     if (settings.autoPlay !== undefined) setAutoPlayEnabled(settings.autoPlay)
     if (settings.autoAdvance !== undefined) setAutoAdvanceEnabled(settings.autoAdvance)
   }, [])
-
-  // --- KORJAUS PÄÄTTYY ---
 
   // Auto-advance logic
   useEffect(() => {
@@ -107,7 +105,7 @@ const Notation = () => {
       style={{ width: '100%', height: '100%' }}
     >
       <NotationContainer>
-        {/* VASEN SARAKE: Nuotit ja kontrollit */}
+        {/* Left Column: Score and Controls */}
         <ScoreArea>
           <NotationWrapper>
             <NotationDisplay
@@ -123,7 +121,7 @@ const Notation = () => {
           </NotationWrapper>
         </ScoreArea>
 
-        {/* OIKEA SARAKE: Sivupalkki (Dashboard) */}
+        {/* Right Column: Sidebar (Dashboard) */}
         <Sidebar>
           <PageTitle>Practice Dashboard</PageTitle>
 

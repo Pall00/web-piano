@@ -56,14 +56,10 @@ const useNoteMatching = () => {
       return
     }
 
-    // Filter out tied notes logic (Simplified & Silent)
-    const requiredNotes = currentNotesUnderCursor.filter(note => !note.isTied)
-
-    // If only tied notes remain (should be rare with new parser), match automatically
-    if (requiredNotes.length === 0 && currentNotesUnderCursor.length > 0) {
-      setIsMatched(true)
-      return
-    }
+    // KORJAUS: Poistettu .filter(note => !note.isTied)
+    // ScoreParser palauttaa vain nuotit, jotka pitää soittaa (attack).
+    // Käyttäjän on soitettava myös sidotun nuotin alku.
+    const requiredNotes = currentNotesUnderCursor
 
     const requiredNoteNames = requiredNotes.map(note => note.name)
     const allNotesPlayed = requiredNoteNames.every(note => matchedNotes.has(note))
